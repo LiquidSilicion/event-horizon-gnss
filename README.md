@@ -1,4 +1,6 @@
-<h1 align="center"> Event Horizon GNSS</h1>
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=40&duration=3000&pause=1000&color=FF4500&center=true&vCenter=true&width=800&lines=EVENT+HORIZON+GNSS" alt="Event Horizon GNSS" />
+</p>
 
 ---
 
