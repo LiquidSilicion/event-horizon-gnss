@@ -1,16 +1,5 @@
-<div align="center">
-<pre>
- ███████╗██╗   ██╗███████╗████████╗███████╗███╗   ███╗
- ██╔════╝██╗ ██╔╝██╔════╝╚══██╔══╝██╔════╝████╗ ████║
- █████╗   ╚████╔╝ ███████╗   ██║   █████╗  ██╔████╔██║
- ██╔══╝    ╚██╔╝  ╚════██║   ██║   ██╔══╝  ██║╚██╔╝██║
- ███████╗   ██║   ███████║   ██║   ███████╗██║ ╚═╝ ██║
- ╚══════╝   ╚═╝   ╚══════╝   ╚═╝   ╚══════╝╚═╝     ╚═╝
-</pre>
-</div>
-
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=32&duration=2500&pause=1200&color=FF4500&center=true&vCenter=true&width=800&height=120&lines=HORIZON+GNSS;PULLING+NAVIGATION+OUT+OF+THE+VOID" alt="HORIZON GNSS — Pulling Navigation Out of the Void" />
+  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=40&duration=3000&pause=1000&color=FF4500&center=true&vCenter=true&width=800&lines=EVENT+HORIZON+GNSS" alt="Event Horizon GNSS" />
 </p>
 ---
 
