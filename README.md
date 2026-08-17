@@ -1,4 +1,4 @@
-<h1 align="center">$$ \mathfrak{Event\ Horizon\ GNSS} $$</h1>
+<h1 align="center">$$ \mathtt{EVENT\ HORIZON\ GNSS} $$</h1>
 
 ---
 
