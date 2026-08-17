@@ -1,4 +1,4 @@
-<h1 align="center">🕳️ Event Horizon GNSS</h1>
+<h1 align="center"> Event Horizon GNSS</h1>
 
 ---
 
@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="license">
-  <img src="https://img.shields.io/badge/core-Verilog_%C2%B7_VHDL_%C2%B7_C%2B%2B-lightgrey.svg" alt="core">
+  <img src="https://img.shields.io/badge/core-Verilog_%C2%B7_VHDL_C%2B%2B-lightgrey.svg" alt="core">
   <img src="https://img.shields.io/badge/platforms-Zynq_%7C_ZynqMP-blue.svg" alt="platforms">
   <img src="https://img.shields.io/badge/GNSS-GPS_%C2%B7_Galileo_%C2%B7_BeiDou_%C2%B7_GLONASS-green.svg" alt="gnss">
   <img src="https://img.shields.io/badge/channels-12%2B_parallel-green.svg" alt="channels">
