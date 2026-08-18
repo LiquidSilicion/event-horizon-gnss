@@ -14,6 +14,7 @@ The system utilizes a hybrid processing model to optimize resource utilization:
 
 ## Directory Structure
 
+```text
 event-horizon-gnss/
 ├── .github/                        # GitHub Actions for CI/CD (optional)
 │   └── workflows/                  # YAML files for automated builds/linting
@@ -51,6 +52,9 @@ event-horizon-gnss/
 │   ├── iq_samples/                 # Small recorded RF captures for testing
 │   └── golden_files/               # Expected outputs for RTL testbenches
 │
+├── log/                            # Daily development logs
+│
 ├── .gitignore                      # Ignore build artifacts, .xpr, .log, etc.
 ├── LICENSE                         # GPL v3 (to match gnss-sdr)
 └── README.md                       # Project description
+```
