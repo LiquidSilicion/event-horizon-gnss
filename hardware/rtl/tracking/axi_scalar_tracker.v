@@ -99,41 +99,7 @@ module axi_scalar_tracker #(
         else if (dump_valid) epoch_count <= epoch_count + 1;
     end
 
-    // ==========================================
-    // AXI4-Lite Write Address & Data Handshake
-    // ==========================================
-    always @(posedge aclk) begin
-        if (!aresetn) begin
-            S_AXI_AWREADY <= 0;
-            S_AXI_WREADY  <= 0;
-            S_AXI_BVALID  <= 0;
-            S_AXI_BRESP   <= 2'b00; // OKAY
-        end else begin
-            // Acknowledge Address and Data
-            if (S_AXI_AWVALID && S_AXI_WVALID && !S_AXI_AWREADY && !S_AXI_WREADY) begin
-                // Execute Write
-                case (S_AXI_AWADDR[7:0])
-                    8'h00: carr_freq_lo <= S_AXI_WDATA;
-                    8'h04: carr_freq_hi <= S_AXI_WDATA[15:0];
-                    8'h08: code_freq    <= S_AXI_WDATA;
-                    8'h0C: init_code    <= S_AXI_WDATA;
-                    8'h10: begin
-                        prn_sel    <= S_AXI_WDATA[4:0];
-                        channel_en <= S_AXI_WDATA[8];
-                    end
-                endcase
-                S_AXI_AWREADY <= 1;
-                S_AXI_WREADY  <= 1;
-                S_AXI_BVALID  <= 1;
-            end else begin
-                S_AXI_AWREADY <= 0;
-                S_AXI_WREADY  <= 0;
-                if (S_AXI_BREADY && S_AXI_BVALID) begin
-                    S_AXI_BVALID <= 0;
-                end
-            end
-        end
-    end
+    // ... [previous code stays the same until the read case statement] ...
 
     // ==========================================
     // AXI4-Lite Read Address & Data Handshake
@@ -142,15 +108,18 @@ module axi_scalar_tracker #(
         if (!aresetn) begin
             S_AXI_ARREADY <= 0;
             S_AXI_RVALID  <= 0;
-            S_AXI_RRESP   <= 2'b00; // OKAY
+            S_AXI_RRESP   <= 2'b00;
             S_AXI_RDATA   <= 0;
         end else begin
             if (S_AXI_ARVALID && !S_AXI_ARREADY) begin
-                // Execute Read
                 case (S_AXI_ARADDR[7:0])
-                    8'h20: S_AXI_RDATA <= I_P;
-                    8'h24: S_AXI_RDATA <= Q_P;
-                    8'h28: S_AXI_RDATA <= {epoch_count, 15'b0, dump_valid};
+                    8'h20: S_AXI_RDATA <= I_E;
+                    8'h24: S_AXI_RDATA <= Q_E;
+                    8'h28: S_AXI_RDATA <= I_P;
+                    8'h2C: S_AXI_RDATA <= Q_P;
+                    8'h30: S_AXI_RDATA <= I_L;
+                    8'h34: S_AXI_RDATA <= Q_L;
+                    8'h38: S_AXI_RDATA <= {epoch_count, 15'b0, dump_valid};
                     default: S_AXI_RDATA <= 32'hDEADBEEF;
                 endcase
                 S_AXI_ARREADY <= 1;
