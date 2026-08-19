@@ -22,109 +22,66 @@
 
 #include <stdint.h>
 
-/* ============== Configuration Constants ============== */
-#define TRACKING_BASE_ADDR      0x40000000UL  /* AXI base address from Vivado */
-#define TRACKING_ADDR_RANGE     0x10000       /* 64 KB address space */
+#define TRACKING_BASE_ADDR      0x40000000UL
+#define TRACKING_ADDR_RANGE     0x10000
 #define TRACKING_DEV_MEM        "/dev/mem"
 
-/* Default sample rate (must match FPGA design) */
-#define FS_HZ                   4000000.0     /* 4 MHz */
-#define CODE_RATE_HZ            1023000.0     /* GPS L1CA C/A code rate */
+#define FS_HZ                   4000000.0
+#define CODE_RATE_HZ            1023000.0
 
-/* ============== Register Offsets ============== */
+/* Register Offsets */
 #define REG_CARR_FREQ_LO        0x00
 #define REG_CARR_FREQ_HI        0x04
 #define REG_CODE_FREQ           0x08
 #define REG_INIT_CODE_PHASE     0x0C
 #define REG_CONTROL             0x10
-#define REG_I_P                 0x20
-#define REG_Q_P                 0x24
-#define REG_STATUS              0x28
+#define REG_I_E                 0x20
+#define REG_Q_E                 0x24
+#define REG_I_P                 0x28
+#define REG_Q_P                 0x2C
+#define REG_I_L                 0x30
+#define REG_Q_L                 0x34
+#define REG_STATUS              0x38
 
-/* ============== Register Map Structure ============== */
 typedef struct {
-    volatile uint32_t carr_freq_lo;     /* 0x00 */
-    volatile uint32_t carr_freq_hi;     /* 0x04 */
-    volatile uint32_t code_freq;        /* 0x08 */
-    volatile uint32_t init_code_phase;  /* 0x0C */
-    volatile uint32_t control;          /* 0x10 */
-    volatile uint32_t reserved[3];      /* 0x14 - 0x1C */
-    volatile int32_t  I_P;              /* 0x20 */
-    volatile int32_t  Q_P;              /* 0x24 */
-    volatile uint32_t status;           /* 0x28 */
+    volatile uint32_t carr_freq_lo;
+    volatile uint32_t carr_freq_hi;
+    volatile uint32_t code_freq;
+    volatile uint32_t init_code_phase;
+    volatile uint32_t control;
+    volatile uint32_t reserved[3];
+    volatile int32_t  I_E;
+    volatile int32_t  Q_E;
+    volatile int32_t  I_P;
+    volatile int32_t  Q_P;
+    volatile int32_t  I_L;
+    volatile int32_t  Q_L;
+    volatile uint32_t status;
 } Tracking_Regs_t;
 
-/* ============== Driver Handle ============== */
 typedef struct {
-    int              fd;                /* File descriptor for /dev/mem */
-    void            *mapped_base;       /* mmap'd base address */
-    Tracking_Regs_t *regs;              /* Typed register pointer */
-    uint32_t         base_addr;         /* Physical base address */
+    int              fd;
+    void            *mapped_base;
+    Tracking_Regs_t *regs;
+    uint32_t         base_addr;
 } Tracking_Driver_t;
 
-/* ============== Function Prototypes ============== */
-
-/**
- * @brief Initialize the tracking driver
- * @param drv      Pointer to driver handle
- * @param base_addr Physical AXI base address (use TRACKING_BASE_ADDR if default)
- * @return 0 on success, -1 on failure
- */
 int tracking_init(Tracking_Driver_t *drv, uint32_t base_addr);
-
-/**
- * @brief Close the tracking driver and release resources
- */
 void tracking_close(Tracking_Driver_t *drv);
-
-/**
- * @brief Set the carrier Doppler frequency
- * @param drv         Pointer to driver handle
- * @param doppler_hz  Doppler frequency in Hz (e.g., 1255.0)
- */
 void tracking_set_doppler(Tracking_Driver_t *drv, double doppler_hz);
-
-/**
- * @brief Set the code NCO frequency (usually fixed at 1.023 MHz)
- */
 void tracking_set_code_freq(Tracking_Driver_t *drv);
-
-/**
- * @brief Set the initial code phase
- * @param code_phase_chips  Initial code phase in chips (0 to 1022.999)
- */
 void tracking_set_code_phase(Tracking_Driver_t *drv, double code_phase_chips);
-
-/**
- * @brief Select PRN and enable the channel
- * @param prn       PRN number (1 to 32)
- * @param enable    1 to enable, 0 to disable
- */
 void tracking_set_prn(Tracking_Driver_t *drv, uint8_t prn, uint8_t enable);
 
-/**
- * @brief Read the Prompt In-Phase correlator dump
- */
+/* All 6 correlator read functions */
+int32_t tracking_read_I_E(Tracking_Driver_t *drv);
+int32_t tracking_read_Q_E(Tracking_Driver_t *drv);
 int32_t tracking_read_I_P(Tracking_Driver_t *drv);
-
-/**
- * @brief Read the Prompt Quadrature correlator dump
- */
 int32_t tracking_read_Q_P(Tracking_Driver_t *drv);
+int32_t tracking_read_I_L(Tracking_Driver_t *drv);
+int32_t tracking_read_Q_L(Tracking_Driver_t *drv);
 
-/**
- * @brief Read the status register
- * @param dump_valid  Output: 1 if new dump is available
- * @param epoch_count Output: Number of completed epochs
- */
-void tracking_read_status(Tracking_Driver_t *drv, uint8_t *dump_valid, 
-                          uint16_t *epoch_count);
-
-/**
- * @brief Wait for a new dump to be available (blocking)
- * @param timeout_ms  Maximum time to wait in milliseconds
- * @return 0 on success, -1 on timeout
- */
+void tracking_read_status(Tracking_Driver_t *drv, uint8_t *dump_valid, uint16_t *epoch_count);
 int tracking_wait_dump(Tracking_Driver_t *drv, uint32_t timeout_ms);
 
-#endif /* TRACKING_DRIVER_H */
+#endif

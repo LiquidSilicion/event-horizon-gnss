@@ -3,6 +3,9 @@
  * @brief Main tracking loop for Event Horizon GNSS
  */
 
+#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -19,10 +22,12 @@ int main() {
     
     /* Initialize driver */
     if (tracking_init(&drv, TRACKING_BASE_ADDR) < 0) {
+        fprintf(stderr, "Failed to initialize tracking driver\n");
         return -1;
     }
     
     /* Configure initial parameters */
+    printf("Configuring tracking channel...\n");
     tracking_set_doppler(&drv, 1255.0);
     tracking_set_code_freq(&drv);
     tracking_set_code_phase(&drv, 347.0);
@@ -32,6 +37,9 @@ int main() {
     loop_filter_init(&loop_filter, 1255.0, 347.0);
     
     printf("Starting tracking loop...\n\n");
+    printf("%-8s %-12s %-12s %-12s %-12s %-12s %-12s %-12s %-12s\n",
+           "Epoch", "I_E", "Q_E", "I_P", "Q_P", "I_L", "Q_L", "Freq", "Phase");
+    printf("--------------------------------------------------------------------------------\n");
     
     /* Main tracking loop (runs at 1 kHz = 1 ms epoch) */
     for (int epoch = 0; epoch < 10000; epoch++) {
@@ -41,7 +49,7 @@ int main() {
             break;
         }
         
-        /* Read correlator outputs */
+        /* Read all 6 correlator outputs */
         int32_t I_E = tracking_read_I_E(&drv);
         int32_t Q_E = tracking_read_Q_E(&drv);
         int32_t I_P = tracking_read_I_P(&drv);
@@ -64,11 +72,13 @@ int main() {
         
         /* Log every 100 epochs */
         if (epoch % 100 == 0) {
-            printf("Epoch %5d: I_P=%8d Q_P=%8d | Freq=%.2f Hz Phase=%.3f chips\n",
-                   epoch, I_P, Q_P, loop_filter.carrier_freq, loop_filter.code_phase);
+            printf("%-8d %-12d %-12d %-12d %-12d %-12d %-12d %-12.2f %-12.3f\n",
+                   epoch, I_E, Q_E, I_P, Q_P, I_L, Q_L,
+                   loop_filter.carrier_freq, loop_filter.code_phase);
         }
     }
     
+    printf("\n");
     tracking_close(&drv);
     return 0;
 }
