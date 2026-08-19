@@ -1,66 +1,93 @@
 /**
  * @file loop_filter.c
- * @brief Scalar Tracking Loop Filter Implementation
+ * @brief Scalar Tracking Loop Filter - Stable Implementation (Fixed)
  */
 
 #include "loop_filter.h"
 #include <math.h>
+#include <stdio.h>
 
 void loop_filter_init(ScalarLoopFilter_t *lf, double initial_doppler_hz, double initial_code_phase) {
-    /* PLL initialization (2nd order loop) */
+    /* PLL initialization */
     lf->carrier_phase = 0.0;
     lf->carrier_freq = initial_doppler_hz;
-    
-    /* Calculate PLL coefficients based on loop bandwidth */
-    /* For 2nd order PLL: coeff1 = 0.5 * Bn, coeff2 = 0.25 * Bn^2 */
-    double pll_bn = PLL_BANDWIDTH_HZ;
-    lf->pll_coeff1 = 0.5 * pll_bn;
-    lf->pll_coeff2 = 0.25 * pll_bn * pll_bn;
     lf->pll_integrator = 0.0;
     
-    /* DLL initialization (1st order loop) */
+    /* PLL coefficients for 2nd order loop */
+    /* For loop bandwidth Bn and damping ratio ζ:
+     * Natural frequency: ωn = 2π * Bn / (ζ + 1/(4ζ))
+     * For ζ = 0.707: ωn ≈ 5.93 * Bn
+     */
+    double Bn = PLL_BANDWIDTH_HZ;  /* 15 Hz */
+    double dt = EPOCH_PERIOD_S;    /* 0.001 s */
+    double zeta = 0.707;
+    
+    /* Calculate natural frequency */
+    double omega_n = 2 * M_PI * Bn / (zeta + 1.0/(4.0*zeta));
+    
+    /* Discrete-time coefficients (much more conservative) */
+    lf->pll_coeff1 = 2 * zeta * omega_n * dt;  /* Proportional */
+    lf->pll_coeff2 = omega_n * omega_n * dt * dt;  /* Integral */
+    
+    printf("PLL Init: Bn=%.1f Hz, ωn=%.2f rad/s\n", Bn, omega_n);
+    printf("  coeff1 (prop) = %.6f\n", lf->pll_coeff1);
+    printf("  coeff2 (int)  = %.6f\n", lf->pll_coeff2);
+    
+    /* DLL initialization */
     lf->code_phase = initial_code_phase;
     lf->code_freq = CODE_RATE_HZ;
-    
-    /* Calculate DLL coefficients based on loop bandwidth */
-    /* For 1st order DLL: coeff1 = Bn */
-    double dll_bn = DLL_BANDWIDTH_HZ;
-    lf->dll_coeff1 = dll_bn;
-    lf->dll_coeff2 = 0.0;  /* Not used for 1st order */
     lf->dll_integrator = 0.0;
+    
+    double dll_Bn = DLL_BANDWIDTH_HZ;  /* 2 Hz */
+    double dll_omega_n = 2 * M_PI * dll_Bn / (zeta + 1.0/(4.0*zeta));
+    lf->dll_coeff1 = 2 * zeta * dll_omega_n * dt;
+    lf->dll_coeff2 = 0.0;  /* 1st order DLL */
+    
+    printf("DLL Init: Bn=%.1f Hz, coeff1=%.6f\n", dll_Bn, lf->dll_coeff1);
     
     lf->early_late_spacing = EARLY_LATE_SPACING;
 }
 
 void pll_update(ScalarLoopFilter_t *lf, int32_t I_P, int32_t Q_P, double dt) {
-    /* Phase error from discriminator: atan2(Q, I) */
-    double phase_error = atan2((double)Q_P, (double)I_P);
+    /* Phase error discriminator: atan2(Q, I) in radians */
+    double phase_error_rad = atan2((double)Q_P, (double)I_P);
+    
+    /* Convert to cycles (not radians) for direct Hz correction */
+    double phase_error_cycles = phase_error_rad / (2.0 * M_PI);
     
     /* 2nd order loop filter */
-    lf->pll_integrator += lf->pll_coeff2 * phase_error * dt;
-    double freq_correction = lf->pll_coeff1 * phase_error + lf->pll_integrator;
+    /* Proportional path */
+    double proportional = lf->pll_coeff1 * phase_error_cycles;
     
-    /* Update carrier frequency and phase */
-    lf->carrier_freq += freq_correction;
-    lf->carrier_phase += 2 * M_PI * lf->carrier_freq * dt;
+    /* Integral path */
+    lf->pll_integrator += lf->pll_coeff2 * phase_error_cycles;
+    
+    /* Total frequency correction in Hz */
+    double freq_correction_hz = proportional + lf->pll_integrator;
+    
+    /* Update carrier frequency */
+    lf->carrier_freq += freq_correction_hz;
+    
+    /* Update carrier phase */
+    lf->carrier_phase += 2.0 * M_PI * lf->carrier_freq * dt;
     
     /* Wrap phase to [0, 2π) */
-    while (lf->carrier_phase >= 2 * M_PI) lf->carrier_phase -= 2 * M_PI;
-    while (lf->carrier_phase < 0) lf->carrier_phase += 2 * M_PI;
+    while (lf->carrier_phase >= 2.0 * M_PI) lf->carrier_phase -= 2.0 * M_PI;
+    while (lf->carrier_phase < 0) lf->carrier_phase += 2.0 * M_PI;
 }
 
 void dll_update(ScalarLoopFilter_t *lf, int32_t I_E, int32_t I_L, double dt) {
-    /* Code phase error from discriminator: (E - L) / (E + L) */
+    /* Code phase error discriminator: (E - L) / (E + L) */
     double E = fabs((double)I_E);
     double L = fabs((double)I_L);
-    double code_error = 0.0;
+    double code_error_chips = 0.0;
     
-    if ((E + L) > 0) {
-        code_error = (E - L) / (E + L) * lf->early_late_spacing;
+    if ((E + L) > 0.0) {
+        code_error_chips = ((E - L) / (E + L)) * lf->early_late_spacing;
     }
     
     /* 1st order loop filter */
-    double freq_correction = lf->dll_coeff1 * code_error;
+    double freq_correction = lf->dll_coeff1 * code_error_chips;
     
     /* Update code frequency and phase */
     lf->code_freq += freq_correction;
