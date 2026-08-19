@@ -1,31 +1,55 @@
 `timescale 1ns / 1ps
 
 module tracking_top (
-    input wire clk_100mhz,      // 100 MHz system clock
-    input wire rst_n,           // Active-low reset
-    input wire signed [15:0] i_sample, // Raw I sample from ADC/DMA
-    input wire signed [15:0] q_sample, // Raw Q sample from ADC/DMA
-    input wire sample_valid,    // High when samples are valid
-    
-    // Configuration Inputs (Hardcoded or from switches for now)
-    input wire [47:0] carrier_freq_word,
-    input wire [31:0] code_freq_word,
-    input wire [31:0] init_code_phase,
-    input wire [4:0]  prn_sel,
-    input wire        channel_en,
-    
-    // Output Measurements (To be read by ILA or simple ARM GPIO)
-    output wire signed [31:0] I_E_out, Q_E_out,
-    output wire signed [31:0] I_P_out, Q_P_out,
-    output wire signed [31:0] I_L_out, Q_L_out,
-    output wire               dump_valid_out
+    input wire clk_100mhz,
+    input wire rst_n,
+    output wire led_dump_valid,
+    output wire led_tracking_ok
 );
 
+    // ==========================================
+    // Hardcoded Configuration
+    // ==========================================
+    wire [47:0] carrier_freq_word = 48'h00000000D6A0;
+    wire [31:0] code_freq_word    = 32'h410624DD;
+    wire [31:0] init_code_phase   = 32'd1466933248;
+    wire [4:0]  prn_sel           = 5'd1;
+    wire        channel_en        = 1'b1;
+
+    // ==========================================
+    // TEST STIMULUS GENERATOR (Prevents Optimization)
+    // Uses a free-running counter to create a non-zero
+    // I/Q signal so the correlator has real work to do.
+    // ==========================================
+    reg [31:0] stim_cnt = 0;
+    always @(posedge clk_100mhz) begin
+        if (!rst_n)
+            stim_cnt <= 0;
+        else
+            stim_cnt <= stim_cnt + 1;
+    end
+    
+    // Generate pseudo-I/Q from counter bits
+    // This creates a deterministic, non-zero signal
+    wire signed [15:0] i_sample = stim_cnt[15:0];
+    wire signed [15:0] q_sample = stim_cnt[31:16];
+    wire sample_valid = 1'b1;  // Free-running
+
+    // ==========================================
+    // Internal Wires (with keep attributes)
+    // ==========================================
+    (* keep = "true" *) wire signed [31:0] I_E_int, Q_E_int, I_P_int, Q_P_int, I_L_int, Q_L_int;
+    (* keep = "true" *) wire dump_valid_int;
+    (* keep = "true" *) wire [47:0] carrier_phase_int;
+
+    // ==========================================
+    // DUT Instantiation
+    // ==========================================
     tracking_channel #(
         .CH_ID(0),
         .SAMPLE_BITS(16),
         .ACCUM_BITS(32),
-        .SAMPLES_PER_MS(4000) // Assuming 4MHz sample rate for now
+        .SAMPLES_PER_MS(4000) 
     ) u_tracking_ch (
         .clk(clk_100mhz),
         .rst_n(rst_n),
@@ -37,11 +61,17 @@ module tracking_top (
         .channel_en(channel_en),
         .i_in(i_sample),
         .q_in(q_sample),
-        .I_E(I_E_out), .Q_E(Q_E_out),
-        .I_P(I_P_out), .Q_P(Q_P_out),
-        .I_L(I_L_out), .Q_L(Q_L_out),
-        .dump_valid(dump_valid_out),
-        .carrier_phase()
+        .I_E(I_E_int), .Q_E(Q_E_int),
+        .I_P(I_P_int), .Q_P(Q_P_int),
+        .I_L(I_L_int), .Q_L(Q_L_int),
+        .dump_valid(dump_valid_int),
+        .carrier_phase(carrier_phase_int)
     );
+
+    // ==========================================
+    // Physical Pin Mapping
+    // ==========================================
+    assign led_dump_valid = dump_valid_int;
+    assign led_tracking_ok = ~I_P_int[31] & I_P_int[30]; 
 
 endmodule
