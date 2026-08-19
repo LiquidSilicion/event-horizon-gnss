@@ -17,9 +17,7 @@ module tracking_top (
     wire        channel_en        = 1'b1;
 
     // ==========================================
-    // TEST STIMULUS GENERATOR (Prevents Optimization)
-    // Uses a free-running counter to create a non-zero
-    // I/Q signal so the correlator has real work to do.
+    // TEST STIMULUS GENERATOR
     // ==========================================
     reg [31:0] stim_cnt = 0;
     always @(posedge clk_100mhz) begin
@@ -29,18 +27,23 @@ module tracking_top (
             stim_cnt <= stim_cnt + 1;
     end
     
-    // Generate pseudo-I/Q from counter bits
-    // This creates a deterministic, non-zero signal
     wire signed [15:0] i_sample = stim_cnt[15:0];
     wire signed [15:0] q_sample = stim_cnt[31:16];
-    wire sample_valid = 1'b1;  // Free-running
+    wire sample_valid = 1'b1;
 
     // ==========================================
-    // Internal Wires (with keep attributes)
+    // Internal Wires with DEBUG PROBES
+    // The (* mark_debug = "true" *) attribute tells Vivado
+    // to automatically create an ILA and connect it to these signals
     // ==========================================
-    (* keep = "true" *) wire signed [31:0] I_E_int, Q_E_int, I_P_int, Q_P_int, I_L_int, Q_L_int;
-    (* keep = "true" *) wire dump_valid_int;
-    (* keep = "true" *) wire [47:0] carrier_phase_int;
+    (* mark_debug = "true" *) wire signed [31:0] I_E_int;
+    (* mark_debug = "true" *) wire signed [31:0] Q_E_int;
+    (* mark_debug = "true" *) wire signed [31:0] I_P_int;
+    (* mark_debug = "true" *) wire signed [31:0] Q_P_int;
+    (* mark_debug = "true" *) wire signed [31:0] I_L_int;
+    (* mark_debug = "true" *) wire signed [31:0] Q_L_int;
+    (* mark_debug = "true" *) wire dump_valid_int;
+    (* mark_debug = "true" *) wire [47:0] carrier_phase_int;
 
     // ==========================================
     // DUT Instantiation
@@ -69,7 +72,7 @@ module tracking_top (
     );
 
     // ==========================================
-    // Physical Pin Mapping
+    // Physical Pin Mapping (unchanged)
     // ==========================================
     assign led_dump_valid = dump_valid_int;
     assign led_tracking_ok = ~I_P_int[31] & I_P_int[30]; 
