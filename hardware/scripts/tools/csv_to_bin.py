@@ -13,7 +13,7 @@ with open(input_file, "r") as fin, open(output_file, "wb") as fout:
     reader = csv.DictReader(fin)
     count = 0
     for row in reader:
-        # '>' forces Big-Endian for all integers
+        # '>' forces Big-Endian. This matches Verilog's $fread MSB-first loading.
         data = struct.pack('>iiiiii',
             int(row['I_E']), 
             int(row['Q_E']),
