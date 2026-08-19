@@ -52,18 +52,22 @@ module tb_tracking_channel;
     
     // Compute code freq word
     function [31:0] code_rate_to_freq_word;
+        input integer dummy;
         begin
             code_rate_to_freq_word = $rtoi((1_023_000.0 / FS) * (2.0**32));
         end
     endfunction
+
+    // FIX: Changed 'integer' to 'reg [31:0]' for $fread compatibility
+    reg [31:0] fd_if, fd_truth;
+    reg [31:0] i_if, q_if;
+    reg [31:0] truth_I_E, truth_Q_E, truth_I_P, truth_Q_P, truth_I_L, truth_Q_L;
     
-    integer fd_if, fd_truth;
-    integer i_if, q_if;
-    integer truth_I_E, truth_Q_E, truth_I_P, truth_Q_P, truth_I_L, truth_Q_L;
-    integer epoch;
-    integer err_I_P, err_Q_P;
-    integer max_err = 0;
-    
+    reg [31:0] epoch;
+    reg [31:0] err_I_P, err_Q_P;
+    reg [31:0] max_err = 0;
+    reg [31:0] count; 
+
     initial begin
         rst_n = 0;
         sample_valid = 0;
@@ -72,12 +76,13 @@ module tb_tracking_channel;
         
         // Local Doppler = 1255 Hz (5 Hz offset from truth)
         carrier_freq_word = doppler_to_freq_word(1255.0);
-        code_freq_word = code_rate_to_freq_word();
+        code_freq_word = code_rate_to_freq_word(0);
         init_code_phase = 347 << 22;  // 347 chips (scaled to 32-bit)
         
-        fd_if = $fopen("../../data/iq_samples/synthetic_gps_l1ca.bin", "rb");
-        fd_truth = $fopen("../../data/golden_files/golden_ref_data.bin", "rb");
-        
+        // Corrected absolute paths based on your actual file location
+        fd_if = $fopen("/home/johan/Documents/fpga/event_horizon/event-horizon-gnss/hardware/scripts/tools/data/iq_samples/synthetic_gps_l1ca.bin", "rb");
+        fd_truth = $fopen("/home/johan/Documents/fpga/event_horizon/event-horizon-gnss/hardware/scripts/tools/data/golden_files/golden_ref_data.bin", "rb");
+                        
         if (fd_if == 0 || fd_truth == 0) begin
             $display("ERROR: Cannot open input files");
             $finish;
@@ -87,20 +92,24 @@ module tb_tracking_channel;
         rst_n = 1;
         
         for (epoch = 0; epoch < 100; epoch = epoch + 1) begin
-            // Read truth for this epoch
-            $fread(truth_I_E, fd_truth);
-            $fread(truth_Q_E, fd_truth);
-            $fread(truth_I_P, fd_truth);
-            $fread(truth_Q_P, fd_truth);
-            $fread(truth_I_L, fd_truth);
-            $fread(truth_Q_L, fd_truth);
+            // Read truth for this epoch (6 integers: IE, QE, IP, QP, IL, QL)
+            // Note: Ensure your binary file matches this order exactly
+            count = $fread(truth_I_E, fd_truth);
+            count = $fread(truth_Q_E, fd_truth);
+            count = $fread(truth_I_P, fd_truth);
+            count = $fread(truth_Q_P, fd_truth);
+            count = $fread(truth_I_L, fd_truth);
+            count = $fread(truth_Q_L, fd_truth);
             
             // Process 4000 samples (1 ms)
             repeat (SAMPLES_PER_MS) begin
-                $fread(i_if, fd_if);
-                $fread(q_if, fd_if);
+                count = $fread(i_if, fd_if);
+                count = $fread(q_if, fd_if);
+                
+                // Assign lower 16 bits to signed inputs
                 i_in = i_if[15:0];
                 q_in = q_if[15:0];
+                
                 sample_valid = 1;
                 @(posedge clk);
                 sample_valid = 0;
@@ -110,11 +119,13 @@ module tb_tracking_channel;
             wait (dump_valid);
             @(posedge clk);
             
+            // Calculate errors
             err_I_P = I_P - truth_I_P;
             err_Q_P = Q_P - truth_Q_P;
             
-            if (err_I_P < 0) err_I_P = -err_I_P;
-            if (err_Q_P < 0) err_Q_P = -err_Q_P;
+            // Absolute value
+            if (err_I_P[31]) err_I_P = -err_I_P;
+            if (err_Q_P[31]) err_Q_P = -err_Q_P;
             
             if (err_I_P > max_err) max_err = err_I_P;
             if (err_Q_P > max_err) max_err = err_Q_P;
