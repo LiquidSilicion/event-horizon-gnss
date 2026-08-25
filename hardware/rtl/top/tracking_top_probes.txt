@@ -1,0 +1,13 @@
+    // ==========================================
+    // Internal Wires with DEBUG PROBES
+    // The (* mark_debug = "true" *) attribute tells Vivado
+    // to automatically create an ILA and connect it to these signals
+    // ==========================================
+    (* mark_debug = "true" *) wire signed [31:0] I_E_int;
+    (* mark_debug = "true" *) wire signed [31:0] Q_E_int;
+    (* mark_debug = "true" *) wire signed [31:0] I_P_int;
+    (* mark_debug = "true" *) wire signed [31:0] Q_P_int;
+    (* mark_debug = "true" *) wire signed [31:0] I_L_int;
+    (* mark_debug = "true" *) wire signed [31:0] Q_L_int;
+    (* mark_debug = "true" *) wire dump_valid_int;
+    (* mark_debug = "true" *) wire [47:0] carrier_phase_int;
