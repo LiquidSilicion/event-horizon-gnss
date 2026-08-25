@@ -9,7 +9,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports clk_100mhz]
 # Reset Button (P16 on ZedBoard)
 # CPU_RESETN button (Active Low)
 # ==========================================
-set_property PACKAGE_PIN P17 [get_ports rst_n]
+set_property PACKAGE_PIN P16 [get_ports rst_n]
 set_property IOSTANDARD LVCMOS33 [get_ports rst_n]
 
 # ==========================================
