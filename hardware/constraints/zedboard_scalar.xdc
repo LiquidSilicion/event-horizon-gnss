@@ -6,7 +6,7 @@ set_property PACKAGE_PIN Y9 [get_ports clk_100mhz]
 set_property IOSTANDARD LVCMOS33 [get_ports clk_100mhz]
 
 # ==========================================
-# Reset Button (P17 on ZedBoard)
+# Reset Button (P16 on ZedBoard)
 # CPU_RESETN button (Active Low)
 # ==========================================
 set_property PACKAGE_PIN P17 [get_ports rst_n]
