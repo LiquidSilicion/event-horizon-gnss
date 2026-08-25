@@ -17,7 +17,7 @@ module ca_code_gen #(
     reg [0:0] code_rom [0:ROM_SIZE-1];
     
     initial begin
-        $readmemh("ca_code_all_prns.hex", code_rom);
+        $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/ca_code_all_prns.hex", code_rom);
     end
     
     always @(posedge clk) begin
