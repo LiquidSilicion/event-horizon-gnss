@@ -16,8 +16,9 @@ module ca_code_gen #(
     // FIX: Use ROM_SIZE instead of a fixed large number
     reg [0:0] code_rom [0:ROM_SIZE-1];
     
+    //Loctaion of the hex file needs to be configured accordingly
     initial begin
-        $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/ca_code_all_prns.hex", code_rom);
+        $readmemh("ca_code_all_prns.hex", code_rom);
     end
     
     always @(posedge clk) begin
