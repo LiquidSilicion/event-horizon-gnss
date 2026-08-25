@@ -88,7 +88,9 @@ module tracking_top (
 	.probe4(I_L_int), // input wire [31:0]  probe4 
 	.probe5(Q_L_int), // input wire [31:0]  probe5 
 	.probe6(dump_valid_int), // input wire [0:0]  probe6 
-	.probe7(carrier_phase_int) // input wire [47:0]  probe7
+	.probe7(carrier_phase_int), // input wire [47:0]  probe7 
+	.probe8(rst_n) // input wire [0:0]  probe8
 );
+
 
 endmodule
