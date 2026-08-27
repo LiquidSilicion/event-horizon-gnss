@@ -1,20 +1,12 @@
-`timescale 1ns / 1ps
-
 module tracking_top (
     input wire clk_100mhz,
-    input wire rst_n,
+    input wire rst_n,          // This is Active-High from the ZedBoard button
     output wire led_dump_valid,
     output wire led_tracking_ok
 );
 
-    // ==========================================
-    // Hardcoded Configuration
-    // ==========================================
-    wire [47:0] carrier_freq_word = 48'h00000000D6A0;
-    wire [31:0] code_freq_word    = 32'h410624DD;
-    wire [31:0] init_code_phase   = 32'd1466933248;
-    wire [4:0]  prn_sel           = 5'd1;
-    wire        channel_en        = 1'b1;
+    // FIX: Invert the Active-High button to create a standard Active-Low reset signal
+    wire rst_n_internal = ~rst_n; 
 
     // ==========================================
     // Internal Wires for DEBUG PROBES
@@ -31,9 +23,10 @@ module tracking_top (
     // ==========================================
     // TEST STIMULUS GENERATOR
     // ==========================================
- reg [31:0] stim_cnt = 0;
+    reg [31:0] stim_cnt = 0;
     always @(posedge clk_100mhz) begin
-        if (!rst_n)
+        // FIX: Use the inverted, Active-Low reset signal
+        if (!rst_n_internal) 
             stim_cnt <= 0;
         else
             stim_cnt <= stim_cnt + 1;
@@ -53,13 +46,13 @@ module tracking_top (
         .SAMPLES_PER_MS(4000) 
     ) u_tracking_ch (
         .clk(clk_100mhz),
-        .rst_n(rst_n),
+        .rst_n(rst_n_internal), // FIX: Pass the Active-Low signal to the DUT
         .enable(sample_valid),
-        .carrier_freq_word(carrier_freq_word),
-        .code_freq_word(code_freq_word),
-        .init_code_phase(init_code_phase),
-        .prn_sel(prn_sel),
-        .channel_en(channel_en),
+        .carrier_freq_word(48'h00000000D6A0),
+        .code_freq_word(32'h410624DD),
+        .init_code_phase(32'd1466933248),
+        .prn_sel(5'd1),
+        .channel_en(1'b1),
         .i_in(i_sample),
         .q_in(q_sample),
         .I_E(I_E_int), .Q_E(Q_E_int),
@@ -69,24 +62,22 @@ module tracking_top (
         .carrier_phase(carrier_phase_int)
     );
 
-
     // ==========================================
-    // Physical Pin Mapping (unchanged)
+    // Physical Pin Mapping
     // ==========================================
     assign led_dump_valid = dump_valid_int;
     assign led_tracking_ok = ~I_P_int[31] & I_P_int[30]; 
 
-
-ila_0 your_instance_name (
-	.clk(clk_100mhz), // input wire clk
-
-
-	.probe0(rst_n), // input wire [0:0]  probe0  
-	.probe1(I_P_int), // input wire [31:0]  probe1 
-	.probe2(Q_P_int), // input wire [31:0]  probe2 
-	.probe3(dump_valid_int), // input wire [0:0]  probe3 
-	.probe4(carrier_phase_int) // input wire [47:0]  probe4
-);
-
+    // ==========================================
+    // ILA Instantiation
+    // ==========================================
+    ila_0 u_ila_debug (
+        .clk(clk_100mhz),
+        .probe0(rst_n_internal),      // Probe the internal active-low reset
+        .probe1(I_P_int),
+        .probe2(Q_P_int),
+        .probe3(dump_valid_int),
+        .probe4(carrier_phase_int)
+    );
 
 endmodule
