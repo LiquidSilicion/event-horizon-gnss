@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // Carrier NCO: 48-bit phase accumulator + 18-bit signed sine/cosine output
 // Output range: [-131071, +131071] (18-bit signed, ~full scale of 2^17)
 // This matches the Python model's np.cos/sin scaled to 18-bit.

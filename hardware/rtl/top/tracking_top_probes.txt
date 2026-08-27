@@ -27,3 +27,15 @@
 	.probe7(carrier_phase_int), // input wire [47:0]  probe7 
 	.probe8(rst_n) // input wire [0:0]  probe8
 );
+
+    // ==========================================
+    // ILA Instantiation
+    // ==========================================
+    ila_0 u_ila_debug (
+        .clk(clk_100mhz),
+        .probe0(rst_internal),      // Probe the internal active-low reset
+        .probe1(I_P_int),
+        .probe2(Q_P_int),
+        .probe3(dump_valid_int),
+        .probe4(carrier_phase_int)
+    );
