@@ -1,12 +1,23 @@
+`timescale 1ns / 1ps
+
 module tracking_top (
     input wire clk_100mhz,
-    input wire rst_n,          // This is Active-High from the ZedBoard button
+    input wire rst_n,          // Active-High from ZedBoard button / Testbench
     output wire led_dump_valid,
     output wire led_tracking_ok
 );
 
-    // FIX: Invert the Active-High button to create a standard Active-Low reset signal
-    wire rst_n_internal = ~rst_n; 
+    // 1. FORCE Active-Low reset for ALL internal logic
+    wire rst_internal = ~rst_n; 
+
+    // ==========================================
+    // Hardcoded Configuration
+    // ==========================================
+    wire [47:0] carrier_freq_word = 48'h00000000D6A0;
+    wire [31:0] code_freq_word    = 32'h410624DD;
+    wire [31:0] init_code_phase   = 32'd1466933248;
+    wire [4:0]  prn_sel           = 5'd1;
+    wire        channel_en        = 1'b1;
 
     // ==========================================
     // Internal Wires for DEBUG PROBES
@@ -25,8 +36,7 @@ module tracking_top (
     // ==========================================
     reg [31:0] stim_cnt = 0;
     always @(posedge clk_100mhz) begin
-        // FIX: Use the inverted, Active-Low reset signal
-        if (!rst_n_internal) 
+        if (rst_internal)         // <--- USE ACTIVE-LOW RESET HERE
             stim_cnt <= 0;
         else
             stim_cnt <= stim_cnt + 1;
@@ -46,13 +56,13 @@ module tracking_top (
         .SAMPLES_PER_MS(4000) 
     ) u_tracking_ch (
         .clk(clk_100mhz),
-        .rst_n(rst_n_internal), // FIX: Pass the Active-Low signal to the DUT
+        .rst_n(rst_internal),     // <--- PASS ACTIVE-LOW RESET TO DUT
         .enable(sample_valid),
-        .carrier_freq_word(48'h00000000D6A0),
-        .code_freq_word(32'h410624DD),
-        .init_code_phase(32'd1466933248),
-        .prn_sel(5'd1),
-        .channel_en(1'b1),
+        .carrier_freq_word(carrier_freq_word),
+        .code_freq_word(code_freq_word),
+        .init_code_phase(init_code_phase),
+        .prn_sel(prn_sel),
+        .channel_en(channel_en),
         .i_in(i_sample),
         .q_in(q_sample),
         .I_E(I_E_int), .Q_E(Q_E_int),
@@ -73,7 +83,7 @@ module tracking_top (
     // ==========================================
     ila_0 u_ila_debug (
         .clk(clk_100mhz),
-        .probe0(rst_n_internal),      // Probe the internal active-low reset
+        .probe0(rst_internal),      // Probe the internal active-low reset
         .probe1(I_P_int),
         .probe2(Q_P_int),
         .probe3(dump_valid_int),
