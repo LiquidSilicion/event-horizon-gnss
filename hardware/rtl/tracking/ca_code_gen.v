@@ -15,7 +15,7 @@ module ca_code_gen #(
     
     initial begin
         // If this file is missing, XSim will silently leave the ROM as 'x'
-        $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/tracking/ca_code_all_prns.hex", code_rom);
+        $readmemh("ca_code_all_prns.hex", code_rom);
         
         // ✅ DEBUG: This will print to the console if the file is found
         $display("✅ CA CODE ROM LOADED SUCCESSFULLY FROM ABSOLUTE PATH");
