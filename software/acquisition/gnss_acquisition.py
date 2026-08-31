@@ -23,6 +23,26 @@ SAMPLES_PER_CODE = int(SAMPLE_RATE * CODE_PERIOD)  # 4000 samples
 PRN_NUMBER = 1
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+def format_hex(val: int, bits: int = 18) -> str:
+    """
+    Convert a signed integer to a fixed-width hexadecimal string for Verilog $readmemh.
+    """
+    val = int(np.round(val))
+    # Clip to signed N-bit range
+    max_val = (1 << (bits - 1)) - 1
+    min_val = -(1 << (bits - 1))
+    val = np.clip(val, min_val, max_val)
+    
+    # Convert to two's complement unsigned representation
+    if val < 0:
+        val = (1 << bits) + val
+        
+    hex_digits = (bits + 3) // 4  # 18 bits requires 5 hex digits
+    return f"{val:0{hex_digits}X}"
+
+# ============================================================================
 # GPS C/A Code Generation
 # ============================================================================
 def generate_ca_code(prn: int) -> np.ndarray:
@@ -142,11 +162,11 @@ def pcps_acquisition(signal_i: np.ndarray, signal_q: np.ndarray,
         carrier_i = np.cos(2 * np.pi * doppler * t)
         carrier_q = np.sin(2 * np.pi * doppler * t)
         
-        # Carrier wipe-off
+        # Carrier wipe-off (Complex mixing: Signal * conj(Carrier))
         mixed_i = signal_i[:SAMPLES_PER_CODE] * carrier_i + signal_q[:SAMPLES_PER_CODE] * carrier_q
         mixed_q = signal_q[:SAMPLES_PER_CODE] * carrier_i - signal_i[:SAMPLES_PER_CODE] * carrier_q
         
-        # Zero-pad and FFT (FIXED: added assignment of mixed_i/q)
+        # Zero-pad and FFT
         mixed_padded = np.zeros(fft_size, dtype=complex)
         mixed_padded[:SAMPLES_PER_CODE] = mixed_i + 1j * mixed_q
         
@@ -187,7 +207,7 @@ def pcps_acquisition(signal_i: np.ndarray, signal_q: np.ndarray,
 # ============================================================================
 def fft_split_3way(x: np.ndarray) -> np.ndarray:
     """
-    Compute N-point FFT using three N/3-point FFTs
+    Compute N-point FFT using three N/3-point FFTs (Decimation-in-Frequency approach).
     Based on Leclère et al. 2015 "FFT Splitting for Improved FPGA-Based Acquisition of GNSS Signals"
     """
     N = len(x)
@@ -195,31 +215,35 @@ def fft_split_3way(x: np.ndarray) -> np.ndarray:
     
     N3 = N // 3
     
-    # Split into three sections
+    # Split into three contiguous sections
     x0 = x[0:N3]
     x1 = x[N3:2*N3]
     x2 = x[2*N3:3*N3]
     
-    # Compute combinations
+    # Twiddle factors for the 3-way split
     w3_1 = np.exp(-1j * 2 * np.pi / 3)
-    w3_2 = np.exp(1j * 2 * np.pi / 3)
+    w3_2 = np.exp(-1j * 4 * np.pi / 3)
     
+    # Time-domain combinations
     y0 = x0 + x1 + x2
     y1 = x0 + x1 * w3_1 + x2 * w3_2
     y2 = x0 + x1 * w3_2 + x2 * w3_1
     
+    # Twiddle factors applied BEFORE the N/3-point FFT
+    n = np.arange(N3)
+    tw1 = np.exp(-1j * 2 * np.pi * n / N)
+    tw2 = np.exp(-1j * 4 * np.pi * n / N)
+    
     # Compute N/3-point FFTs
     Y0 = np.fft.fft(y0)
-    Y1 = np.fft.fft(y1)
-    Y2 = np.fft.fft(y2)
+    Y1 = np.fft.fft(y1 * tw1)
+    Y2 = np.fft.fft(y2 * tw2)
     
-    # Combine results
+    # Interleave results
     X = np.zeros(N, dtype=complex)
-    
-    for k in range(N3):
-        X[3*k] = Y0[k]
-        X[3*k+1] = Y1[k] * np.exp(-1j * 2 * np.pi * k / N)
-        X[3*k+2] = Y2[k] * np.exp(-1j * 4 * np.pi * k / N)
+    X[0::3] = Y0
+    X[1::3] = Y1
+    X[2::3] = Y2
     
     return X
 
@@ -235,12 +259,11 @@ def pcps_acquisition_with_splitting(signal_i: np.ndarray, signal_q: np.ndarray,
     local_code_resampled = signal.resample(local_code, SAMPLES_PER_CODE)
     
     # Determine FFT size based on splitting method
+    # Note: Sizes scaled to reflect multiples suitable for 4MHz sampling demonstration
     if split_method == '3way':
-        # 9-FFT solution: use 49152 samples (3 * 16384)
-        fft_size = 49152
+        fft_size = 12288  # 3 * 4096 (Divisible by 3)
     else:
-        # Standard 3-FFT solution: use 65536 samples
-        fft_size = 65536
+        fft_size = 8192   # Standard power of 2
         
     # Zero-pad local code
     local_code_padded = np.zeros(fft_size, dtype=complex)
@@ -279,7 +302,7 @@ def pcps_acquisition_with_splitting(signal_i: np.ndarray, signal_q: np.ndarray,
         correlation_fft = mixed_fft * local_code_fft_conj
         correlation = np.fft.ifft(correlation_fft)
         
-        # Magnitude (only first half is valid due to zero-padding of 2 periods)
+        # Magnitude (only first code period is valid due to zero-padding)
         correlation_mag = np.abs(correlation[:SAMPLES_PER_CODE])
         
         # Find peak
@@ -363,16 +386,15 @@ def compare_resources():
     print("- 9-FFT solution reduces memory by 73.5% vs 3-FFT")
     print("- 15-FFT solution reduces memory by 84.3% vs 3-FFT")
     print("- 9-FFT is the best balance of memory savings and processing time")
-    print("- For Zynq-7020: 140 BRAMs (M20K) available, 9-FFT uses only ~30 BRAMs")
     print()
 
 # ============================================================================
-# PRN FFT ROM Generation
+# PRN FFT ROM Generation & Combination
 # ============================================================================
 def generate_prn_fft_rom(output_dir: str = './rom_data'):
     """
     Generate FFT of all 32 PRN codes for hardware ROM
-    Output: 18-bit fixed-point format
+    Output: 18-bit fixed-point format separated into I and Q files
     """
     os.makedirs(output_dir, exist_ok=True)
     
@@ -384,7 +406,7 @@ def generate_prn_fft_rom(output_dir: str = './rom_data'):
     fft_size = 4096  # For 4 MHz sample rate
     
     for prn in range(1, 33):
-        print(f"Processing PRN {prn}...")
+        print(f"Processing PRN {prn:02d}...")
         
         # Generate code
         code = generate_ca_code(prn)
@@ -401,7 +423,6 @@ def generate_prn_fft_rom(output_dir: str = './rom_data'):
         code_fft_conj = np.conj(code_fft)
         
         # Convert to 18-bit fixed-point
-        # Scale to fit in 18-bit signed range: [-131072, 131071]
         max_val = np.max(np.abs(code_fft_conj))
         scale_factor = 131071.0 / max_val if max_val > 0 else 1.0
         
@@ -411,25 +432,43 @@ def generate_prn_fft_rom(output_dir: str = './rom_data'):
         code_fft_i = np.round(np.real(code_fft_scaled)).astype(int)
         code_fft_q = np.round(np.imag(code_fft_scaled)).astype(int)
         
-        # Clip to 18-bit range
-        code_fft_i = np.clip(code_fft_i, -131072, 131071)
-        code_fft_q = np.clip(code_fft_q, -131072, 131071)
+        # Define unified filenames
+        file_i = os.path.join(output_dir, f'prn{prn:02d}_fft_i.hex')
+        file_q = os.path.join(output_dir, f'prn{prn:02d}_fft_q.hex')
         
-        # Write to hex file
-        filename = os.path.join(output_dir, f'prn{prn:02d}_fft.hex')
-        with open(filename, 'w') as f:
-            for i in range(fft_size):
-                # Format: I (18-bit) followed by Q (18-bit) = 36 bits total
-                # Pack as two 18-bit values
-                i_val = code_fft_i[i] & 0x3FFFF  # 18-bit mask
-                q_val = code_fft_q[i] & 0x3FFFF
-                combined = (i_val << 18) | q_val
-                f.write(f'{combined:09X}\n')
-        
-        print(f"  Saved: {filename}")
-    
+        with open(file_i, 'w') as f_i, open(file_q, 'w') as f_q:
+            for k in range(fft_size):
+                f_i.write(format_hex(code_fft_i[k], 18) + '\n')
+                f_q.write(format_hex(code_fft_q[k], 18) + '\n')
+                
+    print(f"✅ Generated individual PRN FFT ROM files in {output_dir}/")
     print()
-    print(f"Generated {32} PRN FFT ROM files in {output_dir}/")
+
+def combine_rom_files(rom_dir: str = './rom_data'):
+    """
+    Combine individual PRN ROM files into single contiguous files for Verilog $readmemh
+    """
+    print("="*80)
+    print("Combining PRN FFT ROM Files")
+    print("="*80)
+    
+    output_i = os.path.join(rom_dir, "all_prns_fft_i.hex")
+    output_q = os.path.join(rom_dir, "all_prns_fft_q.hex")
+    
+    with open(output_i, 'w') as f_i, open(output_q, 'w') as f_q:
+        for prn in range(1, 33):
+            file_i = os.path.join(rom_dir, f'prn{prn:02d}_fft_i.hex')
+            file_q = os.path.join(rom_dir, f'prn{prn:02d}_fft_q.hex')
+            
+            if os.path.exists(file_i) and os.path.exists(file_q):
+                with open(file_i, 'r') as fi:
+                    f_i.write(fi.read())
+                with open(file_q, 'r') as fq:
+                    f_q.write(fq.read())
+            else:
+                print(f"⚠️ Warning: Missing files for PRN {prn:02d}")
+                
+    print(f"✅ Successfully combined into {output_i} and {output_q}")
     print()
 
 # ============================================================================
@@ -489,6 +528,9 @@ def main():
     # Generate PRN FFT ROM files
     print("Generating PRN FFT ROM files for hardware implementation...")
     generate_prn_fft_rom()
+    
+    # Combine ROM files
+    combine_rom_files()
     
     print("="*80)
     print("Simulation Complete!")
