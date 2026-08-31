@@ -95,6 +95,19 @@ module acquisition_engine #(
     reg [11:0] global_peak_idx;
     reg [4:0] global_peak_prn;
     reg signed [15:0] global_peak_doppler;
+
+    // ==========================================
+    // Peak Detection Magnitude Calculation Wires
+    // ==========================================
+    // 18-bit * 18-bit = 36-bit. We use $unsigned to ensure the square is treated as positive.
+    wire [35:0] i_sq = $unsigned(fft_i_out) * $unsigned(fft_i_out);
+    wire [35:0] q_sq = $unsigned(fft_q_out) * $unsigned(fft_q_out);
+    
+    // 36-bit + 36-bit = 37-bit max
+    wire [36:0] mag_sum = i_sq + q_sq;
+    
+    // Shift right by 16 bits to scale down, and zero-extend to 32 bits for comparison
+    wire [31:0] magnitude = {11'b0, mag_sum[36:16]}; 
     
     // Initialize sine/cosine tables
     integer i;
@@ -104,16 +117,15 @@ module acquisition_engine #(
             cos_table[i] = $rtoi($cos(i * 2.0 * 3.14159265 / 4096.0) * 131071.0);
         end
     end
-    
-    // Load PRN FFT data from hex files
-    integer prn;
+
     initial begin
-        for (prn = 1; prn <= 32; prn = prn + 1) begin
-            $readmemh($sformatf("prn%02d_fft.hex", prn), 
-                      prn_fft_i[(prn-1)*FFT_SIZE : prn*FFT_SIZE-1]);
-            $readmemh($sformatf("prn%02d_fft_q.hex", prn), 
-                      prn_fft_q[(prn-1)*FFT_SIZE : prn*FFT_SIZE-1]);
-        end
+        // Load the combined master files
+        // Use absolute paths if XSim complains about file not found, 
+        // just like you did for ca_code_all_prns.hex
+        $readmemh("all_prns_fft_i.hex", prn_fft_i);
+        $readmemh("all_prns_fft_q.hex", prn_fft_q);
+        
+        $display("✅ ALL PRN FFT ROMS LOADED SUCCESSFULLY FROM MASTER FILES");
     end
     
     // FFT IP instantiation (Xilinx FFT IP)
@@ -278,17 +290,20 @@ module acquisition_engine #(
                 end
                 
                 PEAK_DETECT: begin
-                    // Find peak magnitude: |I + jQ|^2 = I^2 + Q^2
+                    // Find peak magnitude using the pre-calculated wire
                     if (fft_out_valid) begin
-                        automatic logic [31:0] magnitude = (fft_i_out * fft_i_out + fft_q_out * fft_q_out) >>> 16;
                         if (magnitude > current_peak) begin
                             current_peak <= magnitude;
                             current_peak_idx <= fft_out_index;
                         end
+                        
                         fft_counter <= fft_counter + 1;
+                        
+                        // Check if we have processed all FFT bins for this Doppler hypothesis
                         if (fft_counter == FFT_SIZE - 1) begin
                             state <= NEXT_DOPPLER;
-                            // Update global peak if needed
+                            
+                            // Update global peak if this Doppler bin had the highest peak
                             if (current_peak > global_peak) begin
                                 global_peak <= current_peak;
                                 global_peak_idx <= current_peak_idx;
@@ -331,6 +346,98 @@ module acquisition_engine #(
                     state <= IDLE;
                 end
             endcase
+        end
+    end
+
+    //============================================================================
+    // 1. WIRE DECLARATIONS (Connect these to your Xilinx FFT IP outputs)
+    //============================================================================
+    wire ifft_source_valid;          // Maps to FFT IP: m_axis_data_tvalid
+    wire ifft_source_tlast;          // Maps to FFT IP: m_axis_data_tlast (Crucial for frame sync!)
+    wire signed [17:0] ifft_source_real; // Maps to FFT IP: m_axis_data_tdata[17:0]
+    wire signed [17:0] ifft_source_imag; // Maps to FFT IP: m_axis_data_tdata[35:18]
+
+    // Note: Adjust the bit slicing [35:18] and [17:0] based on your specific 
+    // Xilinx FFT IP configuration (e.g., if it outputs {imag, real} or {real, imag}).
+
+    //============================================================================
+    // 2. MAGNITUDE CALCULATOR INSTANTIATION
+    //============================================================================
+    wire [31:0] current_magnitude;
+
+    magnitude_squared #(
+        .DATA_WIDTH(18),      // Assuming 18-bit signed input from IFFT
+        .SHIFT_AMOUNT(16)     // Shift right by 16 to prevent overflow and scale
+    ) u_mag_calc (
+        .clk(clk),
+        .rst_n(rst_n),
+        .i_in(ifft_source_real),   
+        .q_in(ifft_source_imag),   
+        .mag_out(current_magnitude)
+    );
+
+    //============================================================================
+    // 3. IMPROVED PEAK DETECTOR LOGIC
+    //============================================================================
+    reg [31:0] max_mag;
+    reg [11:0] best_code_phase; 
+    reg [11:0] current_bin_idx;
+
+    // Control signal: Assert this for 1 clock cycle when starting a NEW Doppler bin search
+    // This ensures we find the peak *for the current Doppler hypothesis*, not globally across all time.
+    wire reset_peak_detector; 
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            max_mag <= 32'd0;
+            best_code_phase <= 12'd0;
+            current_bin_idx <= 12'd0;
+        end 
+        else if (reset_peak_detector) begin
+            // Reset for the new Doppler bin search
+            max_mag <= 32'd0;
+            best_code_phase <= 12'd0;
+            current_bin_idx <= 12'd0;
+        end
+        else if (ifft_source_valid) begin 
+            
+            // 1. Update peak if current magnitude is strictly higher
+            if (current_magnitude > max_mag) begin
+                max_mag <= current_magnitude;
+                best_code_phase <= current_bin_idx;
+            end
+            
+            // 2. Increment bin index (wraps at 4096 for a 4096-point FFT)
+            if (current_bin_idx == 12'd4095) begin
+                current_bin_idx <= 12'd0;
+            end else begin
+                current_bin_idx <= current_bin_idx + 12'd1;
+            end
+        end
+    end
+
+    //============================================================================
+    // 4. (OPTIONAL BUT RECOMMENDED) CAPTURE RESULT ON FRAME END
+    //============================================================================
+    // When the FFT outputs the last sample of the frame, we know the search for 
+    // this Doppler bin is complete. We can latch the results here.
+    reg [31:0] final_max_mag;
+    reg [11:0] final_best_code_phase;
+    reg search_done;
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            final_max_mag <= 32'd0;
+            final_best_code_phase <= 12'd0;
+            search_done <= 1'b0;
+        end
+        else if (ifft_source_valid && ifft_source_tlast) begin
+            final_max_mag <= max_mag;
+            final_best_code_phase <= best_code_phase;
+            search_done <= 1'b1; // Tell the state machine this Doppler bin is done
+        end
+        else begin
+            search_done <= 1'b0;
         end
     end
 
