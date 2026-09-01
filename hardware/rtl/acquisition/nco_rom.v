@@ -22,7 +22,7 @@ module nco_rom #(
 
     always @(posedge addr) begin // Or @(posedge clk) if you add a clk port
         cos_out <= cos_rom[addr];
-        sin_out <= sin_rom[addr each cycle.
+        sin_out <= sin_rom[addr each cycle];
     end
 
 endmodule
