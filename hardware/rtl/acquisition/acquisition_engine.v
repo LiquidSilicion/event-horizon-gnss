@@ -53,44 +53,19 @@ module acquisition_engine #(
     // =========================================================================
     // 3. PRN FFT ROM
     // =========================================================================
-    wire signed [DATA_WIDTH-1:0] rom_i;
-    wire signed [DATA_WIDTH-1:0] rom_q;
-    
-    // Address = ((prn_sel - 1) << 12) + current_index
-    wire [16:0] rom_addr = ((prn_sel - 5'd1) << 12) + fft_counter;
-
-    code_fft_rom u_code_fft_rom (
+    code_fft_rom #(
+        .FFT_SIZE(4096),
+        .DATA_WIDTH(18)
+    ) u_code_fft_rom (
         .clk(clk),
-        .addr(rom_addr),
-        .i_out(rom_i),
-        .q_out(rom_q)
+        .prn_sel(current_prn),      // 1 to 32
+        .bin_idx(fft_counter),      // 0 to 4095
+        .fft_i_out(rom_fft_i),      // Connect to complex multiplier
+        .fft_q_out(rom_fft_q)       // Connect to complex multiplier
     );
 
     // =========================================================================
-    // 4. Complex Multiplier
-    // =========================================================================
-    wire signed [DATA_WIDTH-1:0] mult_i_out;
-    wire signed [DATA_WIDTH-1:0] mult_q_out;
-    wire                         mult_valid;
-    reg                          mult_enable;
-
-    complex_multiplier #(
-        .DATA_WIDTH(DATA_WIDTH)
-    ) u_mult (
-        .clk(clk),
-        .rst_n(rst_n),
-        .enable(mult_enable),
-        .a_i(fft_i_out),
-        .a_q(fft_q_out),
-        .b_i(rom_i),
-        .b_q(rom_q),          // Assumed to be pre-conjugated in the ROM
-        .result_i(mult_i_out),
-        .result_q(mult_q_out),
-        .valid(mult_valid)
-    );
-
-    // =========================================================================
-    // 5. FFT Wrapper (Time-multiplexed for FWD and INV)
+    // 4. FFT Wrapper (Time-multiplexed for FWD and INV)
     // =========================================================================
     wire                     fft_in_ready;
     wire                     fft_out_valid;
@@ -123,8 +98,32 @@ module acquisition_engine #(
         .q_out(fft_q_out),
         .out_valid(fft_out_valid),
         .out_index(fft_out_index),
-        .out_ready(1'b1) 
-   5);
+        .out_ready(1'b1)); // Always ready to accept output from FFT
+
+
+    // =========================================================================
+    // 5. Complex Multiplier
+    // =========================================================================
+    wire signed [DATA_WIDTH-1:0] mult_i_out;
+    wire signed [DATA_WIDTH-1:0] mult_q_out;
+    wire                         mult_valid;
+    reg                          mult_enable;
+
+    complex_multiplier #(
+        .DATA_WIDTH(DATA_WIDTH)
+    ) u_mult (
+        .clk(clk),
+        .rst_n(rst_n),
+        .enable(mult_enable),
+        .a_i(fft_i_out),
+        .a_q(fft_q_out),
+        .b_i(rom_i),
+        .b_q(rom_q),          // Assumed to be pre-conjugated in the ROM
+        .result_i(mult_i_out),
+        .result_q(mult_q_out),
+        .valid(mult_valid)
+    );
+
 
     // =========================================================================
     // 6. Peak Detector
@@ -161,10 +160,6 @@ module acquisition_engine #(
     localparam [3:0] ST_LOAD_INV   = 4'd5;
     localparam [3:0] ST_WAIT_INV   = 4'd6;
     localparam [3:0] ST_DONE       = 4'd7;
-
-    reg [3:0] state;
-    reg [IDX_WIDTH-1:0] sample_cnt;
-    reg [IDX_WIDTH-1:0] fft_counter;
 
     always @(posedge clk) begin
         if (!rst_n) begin
