@@ -12,6 +12,7 @@ module fft_fifo_bridge #(
     
     input  wire        rd_clk,           
     input  wire        rd_rst_n,
+    input  wire        rd_enable,        // NEW: Controlled by state machine
     output reg  signed [17:0] i_out,
     output reg  signed [17:0] q_out,
     output reg         data_valid,
@@ -32,39 +33,31 @@ module fft_fifo_bridge #(
     assign fifo_full  = ip_full;
     assign fifo_empty = ip_empty;
 
-    // ============================================================
-    // THE FIX: rd_en is driven by ~empty, NOT by fifo_valid
-    // This breaks the deadlock. We read whenever FIFO has data.
-    // ============================================================
-    wire rd_enable = ~ip_empty;
-
     fifo_fft_bridge u_fifo (
       .rst(~wr_rst_n),          
       .wr_clk(wr_clk),          
       .rd_clk(rd_clk),          
       .din(fifo_din),           
       .wr_en(sample_valid),     
-      .rd_en(rd_enable),        // FIXED: Read when FIFO has data
+      .rd_en(rd_enable & ~ip_empty),  // FIXED: Only read when enabled AND not empty
       .dout(fifo_dout),         
       .full(ip_full),           
       .empty(ip_empty),         
-      .valid(fifo_valid)        // FIFO tells us when dout is valid
+      .valid(fifo_valid)        
     );
 
-    // Capture data when FIFO says it's valid
     always @(posedge rd_clk) begin
         if (!rd_rst_n) begin
-            i_out      <= 18'sd0;
-            q_out      <= 18'sd0;
+            i_out <= 18'sd0;
+            q_out <= 18'sd0;
             data_valid <= 1'b0;
-            last_out   <= 1'b0;
+            last_out <= 1'b0;
         end else begin
-            // Register fifo_valid to align with captured data
             data_valid <= fifo_valid;
             
             if (fifo_valid) begin
-                i_out    <= fifo_dout[17:0];
-                q_out    <= fifo_dout[35:18];
+                i_out <= fifo_dout[17:0];
+                q_out <= fifo_dout[35:18];
                 last_out <= last_sample;
             end
         end

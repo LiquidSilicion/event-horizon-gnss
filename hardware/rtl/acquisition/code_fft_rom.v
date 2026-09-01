@@ -47,8 +47,8 @@ module code_fft_rom #(
     // Update these paths to match your actual directory structure.
     // =========================================================================
     initial begin
-        $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/software/acquisition/rom_data/all_prns_fft_i.hex", prn_fft_i);
-        $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/software/acquisition/rom_data/all_prns_fft_q.hex", prn_fft_q);
+        $readmemh("all_prns_fft_i.hex", prn_fft_i);
+        $readmemh("all_prns_fft_q.hex", prn_fft_q);
         $display("✅ CODE FFT ROM LOADED SUCCESSFULLY FROM MASTER FILES");
         $display("   - I component: all_prns_fft_i.hex");
         $display("   - Q component: all_prns_fft_q.hex");
