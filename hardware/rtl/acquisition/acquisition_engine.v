@@ -14,7 +14,7 @@ module acquisition_engine #(
     output reg                      done,           // Pulse high when acquisition for this bin is complete
     
     // Inputs
-    input  wire signed [15:0]       i_sample,       // Incoming I sample (will be sign-extended to 18)
+    input  wire signed [15:0]       i_sample,       // Incoming I sample
     input  wire signed [15:0]       q_sample,       // Incoming Q sample
     input  wire                     sample_valid,   // High when sample is valid (e.g., 4 MHz pulse)
     input  wire [4:0]               prn_sel,        // Current PRN being searched (1-32)
@@ -33,6 +33,10 @@ module acquisition_engine #(
     reg signed [DATA_WIDTH-1:0] mult_i_buf [0:FFT_SIZE-1];
     reg signed [DATA_WIDTH-1:0] mult_q_buf [0:FFT_SIZE-1];
 
+    // Counters (12 bits is sufficient for 4096)
+    reg [IDX_WIDTH-1:0] sample_cnt;
+    reg [IDX_WIDTH-1:0] rom_cnt;
+
     // =========================================================================
     // 2. Carrier Wipe-off (NCO)
     // =========================================================================
@@ -42,7 +46,6 @@ module acquisition_engine #(
     wire signed [DATA_WIDTH-1:0] cos_val;
     wire signed [DATA_WIDTH-1:0] sin_val;
     
-    // Instantiate your existing NCO ROM here
     nco_rom u_nco_rom (
         .clk(clk),
         .addr(carrier_idx),
@@ -53,15 +56,18 @@ module acquisition_engine #(
     // =========================================================================
     // 3. PRN FFT ROM
     // =========================================================================
+    wire signed [DATA_WIDTH-1:0] rom_fft_i;
+    wire signed [DATA_WIDTH-1:0] rom_fft_q;
+
     code_fft_rom #(
         .FFT_SIZE(4096),
         .DATA_WIDTH(18)
     ) u_code_fft_rom (
         .clk(clk),
-        .prn_sel(current_prn),      // 1 to 32
-        .bin_idx(fft_counter),      // 0 to 4095
-        .fft_i_out(rom_fft_i),      // Connect to complex multiplier
-        .fft_q_out(rom_fft_q)       // Connect to complex multiplier
+        .prn_sel(prn_sel),          // FIXED: Use input port
+        .bin_idx(rom_cnt),          // FIXED: Use dedicated ROM counter
+        .fft_i_out(rom_fft_i),      
+        .fft_q_out(rom_fft_q)       
     );
 
     // =========================================================================
@@ -98,8 +104,8 @@ module acquisition_engine #(
         .q_out(fft_q_out),
         .out_valid(fft_out_valid),
         .out_index(fft_out_index),
-        .out_ready(1'b1)); // Always ready to accept output from FFT
-
+        .out_ready(1'b1) // Always ready to stream output
+    );
 
     // =========================================================================
     // 5. Complex Multiplier
@@ -117,13 +123,12 @@ module acquisition_engine #(
         .enable(mult_enable),
         .a_i(fft_i_out),
         .a_q(fft_q_out),
-        .b_i(rom_i),
-        .b_q(rom_q),          // Assumed to be pre-conjugated in the ROM
+        .b_i(rom_fft_i),          // FIXED: Correct wire names
+        .b_q(rom_fft_q),          // FIXED: Correct wire names
         .result_i(mult_i_out),
         .result_q(mult_q_out),
         .valid(mult_valid)
     );
-
 
     // =========================================================================
     // 6. Peak Detector
@@ -152,14 +157,14 @@ module acquisition_engine #(
     // =========================================================================
     // 7. Main Control State Machine
     // =========================================================================
+    reg [3:0] state;
     localparam [3:0] ST_IDLE       = 4'd0;
     localparam [3:0] ST_WIPEOFF    = 4'd1;
     localparam [3:0] ST_LOAD_FWD   = 4'd2;
-    localparam [3:0] ST_WAIT_FWD   = 4'd3;
-    localparam [3:0] ST_MULT       = 4'd4;
-    localparam [3:0] ST_LOAD_INV   = 4'd5;
-    localparam [3:0] ST_WAIT_INV   = 4'd6;
-    localparam [3:0] ST_DONE       = 4'd7;
+    localparam [3:0] ST_STREAM_MULT= 4'd3; // FIXED: New state for robust pipelining
+    localparam [3:0] ST_LOAD_INV   = 4'd4;
+    localparam [3:0] ST_WAIT_INV   = 4'd5;
+    localparam [3:0] ST_DONE       = 4'd6;
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -167,7 +172,7 @@ module acquisition_engine #(
             done <= 1'b0;
             carrier_phase <= 0;
             sample_cnt <= 0;
-            fft_counter <= 0;
+            rom_cnt <= 0;
             fft_start <= 1'b0;
             fft_inverse <= 1'b0;
             fft_in_valid <= 1'b0;
@@ -181,7 +186,7 @@ module acquisition_engine #(
                     done <= 1'b0;
                     carrier_phase <= 0;
                     sample_cnt <= 0;
-                    fft_counter <= 0;
+                    rom_cnt <= 0;
                     if (start) begin
                         state <= ST_WIPEOFF;
                     end
@@ -189,16 +194,17 @@ module acquisition_engine #(
 
                 ST_WIPEOFF: begin
                     if (sample_valid) begin
-                        // Wipe-off: (I + jQ) * (cos - j*sin) 
-                        i_buf[sample_cnt] <= (i_sample * cos_val + q_sample * sin_val) >>> 17;
-                        q_buf[sample_cnt] <= (q_sample * cos_val - i_sample * sin_val) >>> 17;
+                        // FIXED: Explicit $signed casting ensures >>> performs arithmetic right shift
+                        i_buf[sample_cnt] <= (($signed(i_sample) * $signed(cos_val)) + ($signed(q_sample) * $signed(sin_val))) >>> 17;
+                        q_buf[sample_cnt] <= (($signed(q_sample) * $signed(cos_val)) - ($signed(i_sample) * $signed(sin_val))) >>> 17;
                         
                         carrier_phase <= carrier_phase + carrier_freq_word;
-                        sample_cnt <= sample_cnt + 1;
                         
                         if (sample_cnt == FFT_SIZE - 1) begin
                             state <= ST_LOAD_FWD;
                             sample_cnt <= 0;
+                        end else begin
+                            sample_cnt <= sample_cnt + 1;
                         end
                     end
                 end
@@ -210,54 +216,59 @@ module acquisition_engine #(
                     fft_in_valid <= 1'b1;
                     fft_start <= (sample_cnt == 0); // 1-cycle pulse
                     
-                    sample_cnt <= sample_cnt + 1;
                     if (sample_cnt == FFT_SIZE - 1) begin
-                        state <= ST_WAIT_FWD;
-                        fft_in_valid <= 1'b0;
+                        state <= ST_STREAM_MULT;
+                        fft_in_valid <= 1'b0; // Will be 0 next cycle, ensuring 4096th sample is fed
+                        sample_cnt <= 0;
+                    end else begin
+                        sample_cnt <= sample_cnt + 1;
                     end
                 end
 
-                ST_WAIT_FWD: begin
-                    if (fft_done) begin
-                        state <= ST_MULT;
-                        fft_counter <= 0;
-                    end
-                end
-
-                ST_MULT: begin
-                    // Stream enable directly from FFT valid. Multiplier pipelines it perfectly.
+                ST_STREAM_MULT: begin
+                    // Stream FFT output directly into the multiplier
                     mult_enable <= fft_out_valid;
                     
+                    // Advance ROM address on the input cycle
+                    if (fft_out_valid) begin
+                        rom_cnt <= rom_cnt + 1;
+                    end
+                    
+                    // Capture multiplier output on the valid cycle (accounts for pipeline delay)
                     if (mult_valid) begin
-                        mult_i_buf[fft_counter] <= mult_i_out;
-                        mult_q_buf[fft_counter] <= mult_q_out;
-                        fft_counter <= fft_counter + 1;
-                        if (fft_counter == FFT_SIZE - 1) begin
+                        mult_i_buf[sample_cnt] <= mult_i_out;
+                        mult_q_buf[sample_cnt] <= mult_q_out;
+                        
+                        if (sample_cnt == FFT_SIZE - 1) begin
                             state <= ST_LOAD_INV;
-                            fft_counter <= 0;
+                            sample_cnt <= 0;
+                            rom_cnt <= 0;
+                        end else begin
+                            sample_cnt <= sample_cnt + 1;
                         end
                     end
                 end
 
                 ST_LOAD_INV: begin
                     fft_inverse <= 1'b1;
-                    fft_i_in <= mult_i_buf[fft_counter];
-                    fft_q_in <= mult_q_buf[fft_counter];
+                    fft_i_in <= mult_i_buf[sample_cnt];
+                    fft_q_in <= mult_q_buf[sample_cnt];
                     fft_in_valid <= 1'b1;
-                    fft_start <= (fft_counter == 0);
+                    fft_start <= (sample_cnt == 0);
                     
-                    fft_counter <= fft_counter + 1;
-                    if (fft_counter == FFT_SIZE - 1) begin
+                    if (sample_cnt == FFT_SIZE - 1) begin
                         state <= ST_WAIT_INV;
                         fft_in_valid <= 1'b0;
-                        pd_start <= 1'b1; // Reset peak detector right before IFFT stream starts
+                        pd_start <= 1'b1; // Pulse high to reset peak detector right before IFFT stream arrives
+                        sample_cnt <= 0;
+                    end else begin
+                        sample_cnt <= sample_cnt + 1;
                     end
                 end
 
                 ST_WAIT_INV: begin
-                    pd_start <= 1'b0; // Keep low after 1 cycle
+                    pd_start <= 1'b0; // Keep low after the 1-cycle pulse
                     if (fft_done) begin
-                        // fft_done and pd_done happen on the exact same cycle (the 4096th sample)
                         state <= ST_DONE;
                     end
                 end
