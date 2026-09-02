@@ -13,6 +13,10 @@ module tb_acquisition_engine;
     integer wait_count;
     integer i;
     
+    // ✅ FIX: Moved these declarations to the module level to fix VRFC 10-8885
+    integer sum_i, sum_q;
+    integer mean_i, mean_q;
+    
     reg [15:0] stim_i_mem [0:FFT_SIZE-1];
     reg [15:0] stim_q_mem [0:FFT_SIZE-1];
 
@@ -65,14 +69,35 @@ module tb_acquisition_engine;
         forever #(CLK_200_PERIOD/2) clk_200 = ~clk_200;
     end
 
-    // Load stimulus files
+    // Load stimulus and remove DC bias
     initial begin
         $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/stim_i.hex", stim_i_mem);
         $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/stim_q.hex", stim_q_mem);
+        
+        // ✅ Calculate mean (DC bias)
+        sum_i = 0;
+        sum_q = 0;
+        for (i = 0; i < FFT_SIZE; i = i + 1) begin
+            sum_i = sum_i + $signed(stim_i_mem[i]);
+            sum_q = sum_q + $signed(stim_q_mem[i]);
+        end
+        mean_i = sum_i / FFT_SIZE;
+        mean_q = sum_q / FFT_SIZE;
+        
         $display("======================================================");
-        $display("✅ STIMULUS LOADED INTO TESTBENCH MEMORY");
-        $display("   [DEBUG] Sample 0: I = %0d (0x%h), Q = %0d (0x%h)", stim_i_mem[0], stim_i_mem[0], stim_q_mem[0], stim_q_mem[0]);
-        $display("   [DEBUG] Sample 1: I = %0d (0x%h), Q = %0d (0x%h)", stim_i_mem[1], stim_i_mem[1], stim_q_mem[1], stim_q_mem[1]);
+        $display("✅ STIMULUS LOADED - DC Bias Removal");
+        $display("   Mean I = %0d, Mean Q = %0d", mean_i, mean_q);
+        
+        // ✅ Subtract mean from all samples
+        for (i = 0; i < FFT_SIZE; i = i + 1) begin
+            stim_i_mem[i] = stim_i_mem[i] - mean_i;
+            stim_q_mem[i] = stim_q_mem[i] - mean_q;
+        end
+        
+        $display("   [DEBUG] Sample 0 (after DC removal): I = %0d, Q = %0d", 
+                 $signed(stim_i_mem[0]), $signed(stim_q_mem[0]));
+        $display("   [DEBUG] Sample 1 (after DC removal): I = %0d, Q = %0d", 
+                 $signed(stim_i_mem[1]), $signed(stim_q_mem[1]));
         $display("======================================================");
     end
 
