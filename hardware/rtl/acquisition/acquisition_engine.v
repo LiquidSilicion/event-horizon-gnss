@@ -21,9 +21,9 @@ module acquisition_engine #(
     output reg [31:0]               peak_magnitude
 );
 
-    // =========================================================================
-    // 1. FIFO CDC Bridge
-    // =========================================================================
+    reg load_fwd_wait;
+    reg load_inv_wait;
+
     wire signed [17:0] fifo_i_out;
     wire signed [17:0] fifo_q_out;
     wire               fifo_data_valid;
@@ -55,9 +55,6 @@ module acquisition_engine #(
         .fifo_empty(fifo_empty)
     );
 
-    // =========================================================================
-    // 2. Local Buffers
-    // =========================================================================
     reg signed [DATA_WIDTH-1:0] i_buf [0:FFT_SIZE-1];
     reg signed [DATA_WIDTH-1:0] q_buf [0:FFT_SIZE-1];
     reg signed [DATA_WIDTH-1:0] mult_i_buf [0:FFT_SIZE-1];
@@ -66,9 +63,6 @@ module acquisition_engine #(
     reg [IDX_WIDTH-1:0] sample_cnt;
     reg [IDX_WIDTH-1:0] rom_cnt;
 
-    // =========================================================================
-    // 3. Carrier Wipe-off NCO
-    // =========================================================================
     reg [PHASE_BITS-1:0] carrier_phase;
     wire [11:0] carrier_idx = carrier_phase[PHASE_BITS-1 -: 12];
     wire signed [DATA_WIDTH-1:0] cos_val;
@@ -81,9 +75,6 @@ module acquisition_engine #(
         .sin_out(sin_val)
     );
 
-    // =========================================================================
-    // 4. PRN FFT ROM
-    // =========================================================================
     wire signed [DATA_WIDTH-1:0] rom_fft_i;
     wire signed [DATA_WIDTH-1:0] rom_fft_q;
 
@@ -98,9 +89,6 @@ module acquisition_engine #(
         .fft_q_out(rom_fft_q)
     );
 
-    // =========================================================================
-    // 5. FFT Wrapper
-    // =========================================================================
     wire                     fft_in_ready;
     wire                     fft_out_valid;
     wire [IDX_WIDTH-1:0]     fft_out_index;
@@ -135,9 +123,6 @@ module acquisition_engine #(
         .out_ready(1'b1)
     );
 
-    // =========================================================================
-    // 6. Complex Multiplier
-    // =========================================================================
     wire signed [DATA_WIDTH-1:0] mult_i_out;
     wire signed [DATA_WIDTH-1:0] mult_q_out;
     wire                         mult_valid;
@@ -158,9 +143,6 @@ module acquisition_engine #(
         .valid(mult_valid)
     );
 
-    // =========================================================================
-    // 7. Peak Detector
-    // =========================================================================
     wire                     pd_done;
     wire [IDX_WIDTH-1:0]     pd_best_idx;
     wire [31:0]              pd_peak_mag;
@@ -182,9 +164,6 @@ module acquisition_engine #(
         .done(pd_done)
     );
 
-    // =========================================================================
-    // 8. Main Control State Machine
-    // =========================================================================
     reg [3:0] state;
     localparam [3:0] ST_IDLE        = 4'd0;
     localparam [3:0] ST_WAIT_FIFO   = 4'd1;
@@ -211,6 +190,8 @@ module acquisition_engine #(
             best_code_phase <= 0;
             peak_magnitude <= 0;
             fifo_rd_enable <= 1'b0;
+            load_fwd_wait <= 1'b0;
+            load_inv_wait <= 1'b0;
         end else begin
             case (state)
                 ST_IDLE: begin
@@ -242,9 +223,7 @@ module acquisition_engine #(
                                               ($signed(fifo_q_out) * $signed(sin_val))) >>> 17;
                         q_buf[sample_cnt] <= (($signed(fifo_q_out) * $signed(cos_val)) - 
                                               ($signed(fifo_i_out) * $signed(sin_val))) >>> 17;
-                        
                         carrier_phase <= carrier_phase + carrier_freq_word;
-                        
                         if (sample_cnt == FFT_SIZE - 1) begin
                             state <= ST_LOAD_FWD;
                             sample_cnt <= 0;
@@ -255,30 +234,32 @@ module acquisition_engine #(
                     end
                 end
 
-                // ✅ FIXED: Hold fft_in_valid HIGH continuously until the transfer completes
                 ST_LOAD_FWD: begin
                     fft_inverse <= 1'b0;
-                    fft_start <= (sample_cnt == 0);
-                    
-                    fft_in_valid <= 1'b1; // MUST stay 1 while in this state
-                    fft_i_in <= i_buf[sample_cnt];
-                    fft_q_in <= q_buf[sample_cnt];
-                    
-                    if (fft_in_ready) begin
-                        if (sample_cnt == FFT_SIZE - 1) begin
-                            state <= ST_STREAM_MULT;
-                            sample_cnt <= 0;
-                        end else begin
-                            sample_cnt <= sample_cnt + 1;
+                    if (!load_fwd_wait) begin
+                        fft_start <= 1'b1;
+                        fft_in_valid <= 1'b0;
+                        load_fwd_wait <= 1'b1;
+                    end else begin
+                        fft_start <= 1'b0;
+                        fft_in_valid <= 1'b1;
+                        fft_i_in <= i_buf[sample_cnt];
+                        fft_q_in <= q_buf[sample_cnt];
+                        if (fft_in_ready) begin
+                            if (sample_cnt == FFT_SIZE - 1) begin
+                                state <= ST_STREAM_MULT;
+                                sample_cnt <= 0;
+                                load_fwd_wait <= 1'b0;
+                            end else begin
+                                sample_cnt <= sample_cnt + 1;
+                            end
                         end
                     end
                 end
 
                 ST_STREAM_MULT: begin
-                    fft_in_valid <= 1'b0; // ✅ Safely deasserted ONLY in the next state
-                    mult_enable <= fft_out_valid;
-                    
-                    if (fft_out_valid) rom_cnt <= rom_cnt + 1;
+                    // ✅ FIX: Keep multiplier enabled continuously to allow the pipeline to flush
+                    mult_enable <= 1'b1;
                     
                     if (mult_valid) begin
                         mult_i_buf[sample_cnt] <= mult_i_out;
@@ -294,28 +275,32 @@ module acquisition_engine #(
                     end
                 end
 
-                // ✅ FIXED: Hold fft_in_valid HIGH continuously until the transfer completes
                 ST_LOAD_INV: begin
                     fft_inverse <= 1'b1;
-                    fft_start <= (sample_cnt == 0);
-                    
-                    fft_in_valid <= 1'b1; // MUST stay 1 while in this state
-                    fft_i_in <= mult_i_buf[sample_cnt];
-                    fft_q_in <= mult_q_buf[sample_cnt];
-                    
-                    if (fft_in_ready) begin
-                        if (sample_cnt == FFT_SIZE - 1) begin
-                            state <= ST_WAIT_INV;
-                            pd_start <= 1'b1;
-                            sample_cnt <= 0;
-                        end else begin
-                            sample_cnt <= sample_cnt + 1;
+                    if (!load_inv_wait) begin
+                        fft_start <= 1'b1;
+                        fft_in_valid <= 1'b0;
+                        load_inv_wait <= 1'b1;
+                    end else begin
+                        fft_start <= 1'b0;
+                        fft_in_valid <= 1'b1;
+                        fft_i_in <= mult_i_buf[sample_cnt];
+                        fft_q_in <= mult_q_buf[sample_cnt];
+                        if (fft_in_ready) begin
+                            if (sample_cnt == FFT_SIZE - 1) begin
+                                state <= ST_WAIT_INV;
+                                pd_start <= 1'b1;
+                                sample_cnt <= 0;
+                                load_inv_wait <= 1'b0;
+                            end else begin
+                                sample_cnt <= sample_cnt + 1;
+                            end
                         end
                     end
                 end
 
                 ST_WAIT_INV: begin
-                    fft_in_valid <= 1'b0; // ✅ Safely deasserted ONLY in the next state
+                    fft_in_valid <= 1'b0;
                     pd_start <= 1'b0;
                     if (pd_done) begin
                         state <= ST_DONE;
@@ -332,5 +317,4 @@ module acquisition_engine #(
             endcase
         end
     end
-
 endmodule

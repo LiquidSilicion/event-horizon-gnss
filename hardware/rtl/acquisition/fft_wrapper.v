@@ -20,7 +20,6 @@ module fft_wrapper #(
     input wire inverse
 );
 
-    // 8-bit Config: {4'd12 (NFFT=4096), 3'b000 (No CP), inverse (FWD_INV)}
     wire [7:0] config_tdata = {4'd12, 3'b000, inverse};
     
     reg config_valid_reg;
@@ -40,20 +39,10 @@ module fft_wrapper #(
     
     wire [47:0] m_axis_data_tdata;
     wire m_axis_data_tvalid;
-    wire m_axis_data_tready = out_ready;
+    wire m_axis_data_tready;
     wire m_axis_data_tlast;
     
     assign in_ready = s_axis_data_tready;
-
-    // CRITICAL DEBUG: Prove the IP is receiving the last sample
-    always @(posedge clk) begin
-        if (s_axis_data_tvalid && s_axis_data_tready && s_axis_data_tlast) begin
-            $display("[%0t] ✅ FFT_WRAPPER: LAST SAMPLE (tlast=1) SENT TO IP!", $time);
-        end
-        if (m_axis_data_tvalid) begin
-            $display("[%0t] ✅ FFT_WRAPPER: IP IS OUTPUTTING DATA!", $time);
-        end
-    end
 
     fft_acq_4096_18b u_fft (
         .aclk(clk),
@@ -82,22 +71,34 @@ module fft_wrapper #(
         .event_data_out_channel_halt()
     );
     
-    localparam IDLE = 3'd0, LOAD = 3'd1, UNLOAD = 3'd2;
+    localparam IDLE = 3'd0;
+    localparam LOAD = 3'd1;
+    localparam UNLOAD = 3'd2;
+    
     reg [2:0] state;
     reg [11:0] sample_count;
     reg [11:0] out_count;
     
     always @(posedge clk) begin
         if (!rst_n) begin
-            state <= IDLE; done <= 0; out_valid <= 0;
-            i_out <= 0; q_out <= 0; out_index <= 0;
-            sample_count <= 0; out_count <= 0;
+            state <= IDLE;
+            done <= 0;
+            out_valid <= 0;
+            i_out <= 0;
+            q_out <= 0;
+            out_index <= 0;
+            sample_count <= 0;
+            out_count <= 0;
         end else begin
             case (state)
                 IDLE: begin
-                    done <= 0; out_valid <= 0; sample_count <= 0; out_count <= 0;
+                    done <= 0;
+                    out_valid <= 0;
+                    sample_count <= 0;
+                    out_count <= 0;
                     if (start) state <= LOAD;
                 end
+                
                 LOAD: begin
                     if (in_valid && s_axis_data_tready) begin
                         sample_count <= sample_count + 1;
@@ -107,15 +108,23 @@ module fft_wrapper #(
                         end
                     end
                 end
+                
                 UNLOAD: begin
-                    if (m_axis_data_tvalid && out_ready) begin
+                    // ✅ FIXED: Only accept data when out_ready is high AND we haven't output all samples yet
+                    if (m_axis_data_tvalid && out_ready && out_count < FFT_SIZE) begin
                         i_out <= m_axis_data_tdata[41:24]; 
                         q_out <= m_axis_data_tdata[17:0];              
                         out_index <= out_count;
+                        
                         out_count <= out_count + 1;
                         out_valid <= 1;
-                        if (m_axis_data_tlast || out_count == FFT_SIZE - 1) begin
-                            state <= IDLE; done <= 1; out_valid <= 0;
+                        
+                        // ✅ FIXED: Transition back to IDLE after outputting all samples
+                        if (out_count == FFT_SIZE - 1) begin
+                            state <= IDLE;
+                            done <= 1;
+                            out_valid <= 0;
+                            $display("[%0t] ✅ FFT_WRAPPER: Completed output, returning to IDLE", $time);
                         end
                     end else begin
                         out_valid <= 0;
@@ -127,4 +136,8 @@ module fft_wrapper #(
     
     assign s_axis_data_tvalid = (state == LOAD) && in_valid;
     assign s_axis_data_tlast  = (state == LOAD) && in_valid && (sample_count == FFT_SIZE - 1);
+    
+    // ✅ FIXED: Only assert m_axis_data_tready when we're in UNLOAD state and haven't finished
+    assign m_axis_data_tready = (state == UNLOAD) && out_ready && (out_count < FFT_SIZE);
+
 endmodule
