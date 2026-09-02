@@ -258,15 +258,14 @@ module acquisition_engine #(
                 end
 
                 ST_STREAM_MULT: begin
-                    // ✅ FIX: Keep multiplier enabled continuously to allow the pipeline to flush
+                    fft_in_valid <= 1'b0;
                     mult_enable <= 1'b1;
-                    
                     if (mult_valid) begin
                         mult_i_buf[sample_cnt] <= mult_i_out;
                         mult_q_buf[sample_cnt] <= mult_q_out;
-                        
                         if (sample_cnt == FFT_SIZE - 1) begin
                             state <= ST_LOAD_INV;
+                            pd_start <= 1'b1;  // ✅ ARM EARLY!
                             sample_cnt <= 0;
                             rom_cnt <= 0;
                         end else begin
@@ -277,6 +276,7 @@ module acquisition_engine #(
 
                 ST_LOAD_INV: begin
                     fft_inverse <= 1'b1;
+                    pd_start <= 1'b1;  // ✅ KEEP ARMED during IFFT
                     if (!load_inv_wait) begin
                         fft_start <= 1'b1;
                         fft_in_valid <= 1'b0;
@@ -289,9 +289,9 @@ module acquisition_engine #(
                         if (fft_in_ready) begin
                             if (sample_cnt == FFT_SIZE - 1) begin
                                 state <= ST_WAIT_INV;
-                                pd_start <= 1'b1;
                                 sample_cnt <= 0;
                                 load_inv_wait <= 1'b0;
+                                // pd_start stays high
                             end else begin
                                 sample_cnt <= sample_cnt + 1;
                             end
@@ -301,7 +301,12 @@ module acquisition_engine #(
 
                 ST_WAIT_INV: begin
                     fft_in_valid <= 1'b0;
-                    pd_start <= 1'b0;
+                    
+                    // ✅ FIX: Deassert pd_start after one cycle
+                    if (pd_start) begin
+                        pd_start <= 1'b0;  // ← Clear it immediately!
+                    end
+                    
                     if (pd_done) begin
                         state <= ST_DONE;
                     end

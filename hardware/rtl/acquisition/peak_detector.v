@@ -16,49 +16,71 @@ module peak_detector #(
     output reg                      done
 );
 
-    reg [IDX_WIDTH-1:0] current_idx;
-    reg                 searching;
-
-    // 18-bit signed * 18-bit signed = 36 bits.
-    // 36 bits + 36 bits = 37 bits maximum.
-    wire [36:0] mag_sq = ($signed(i_in) * $signed(i_in)) + ($signed(q_in) * $signed(q_in));
+    reg [IDX_WIDTH-1:0] sample_count;
+    reg armed;
     
-    // We only need 32 bits for the output magnitude. 
-    // Taking the lower 32 bits is safe and prevents any out-of-bounds warnings.
-    wire [31:0] mag_out = mag_sq[31:0]; 
+    // ✅ FIXED: Use explicit signed arithmetic and safe bit extraction
+    wire signed [35:0] i_sq = $signed(i_in) * $signed(i_in);
+    wire signed [35:0] q_sq = $signed(q_in) * $signed(q_in);
+    wire signed [35:0] mag_sum = i_sq + q_sq;
+    
+    // ✅ Extract upper 32 bits (equivalent to >>> 4 but safer)
+    wire [31:0] mag = mag_sum[35:4];
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            current_idx   <= 0;
-            searching     <= 1'b0;
+            sample_count <= 0;
             max_magnitude <= 0;
-            max_idx       <= 0;
-            done          <= 1'b0;
-        end else if (start) begin
-            // Reset for a new search
-            current_idx   <= 0;
-            searching     <= 1'b1;
-            max_magnitude <= 0;
-            max_idx       <= 0;
-            done          <= 1'b0;
-        end else if (searching) begin
-            if (data_valid) begin
-                // Update peak if current magnitude is strictly greater
-                if (mag_out > max_magnitude) begin
-                    max_magnitude <= mag_out;
-                    max_idx       <= current_idx;
-                end
-                
-                current_idx <= current_idx + 1;
-                
-                // Check if we have processed all FFT_SIZE bins
-                if (current_idx == FFT_SIZE - 1) begin
-                    searching <= 1'b0;
-                    done      <= 1'b1;
-                end
-            end
-        end else begin
+            max_idx <= 0;
             done <= 1'b0;
+            armed <= 1'b0;
+        end else begin
+            case ({armed, done})
+                2'b00: begin
+                    if (start) begin
+                        armed <= 1'b1;
+                        sample_count <= 0;
+                        max_magnitude <= 0;
+                        max_idx <= 0;
+                    end
+                end
+                
+                2'b10: begin
+                    if (data_valid) begin
+                        // ✅ Debug to verify magnitude calculation
+                        if (sample_count < 10) begin
+                            $display("[%0t] PEAK DET: count=%0d, i_in=%0d, q_in=%0d, mag=%0d, max_mag=%0d", 
+                                     $time, sample_count, i_in, q_in, mag, max_magnitude);
+                        end
+                        
+                        if (mag > max_magnitude) begin
+                            max_magnitude <= mag;
+                            max_idx <= sample_count;
+                        end
+                        
+                        if (sample_count == FFT_SIZE - 1) begin
+                            done <= 1'b1;
+                        end else begin
+                            sample_count <= sample_count + 1;
+                        end
+                    end
+                end
+                
+                2'b11: begin
+                    if (start) begin
+                        armed <= 1'b1;
+                        done <= 1'b0;
+                        sample_count <= 0;
+                        max_magnitude <= 0;
+                        max_idx <= 0;
+                    end
+                end
+                
+                default: begin
+                    armed <= 1'b0;
+                    done <= 1'b0;
+                end
+            endcase
         end
     end
 

@@ -110,8 +110,7 @@ module fft_wrapper #(
                 end
                 
                 UNLOAD: begin
-                    // ✅ FIXED: Only accept data when out_ready is high AND we haven't output all samples yet
-                    if (m_axis_data_tvalid && out_ready && out_count < FFT_SIZE) begin
+                    if (m_axis_data_tvalid && out_ready) begin
                         i_out <= m_axis_data_tdata[41:24]; 
                         q_out <= m_axis_data_tdata[17:0];              
                         out_index <= out_count;
@@ -119,12 +118,11 @@ module fft_wrapper #(
                         out_count <= out_count + 1;
                         out_valid <= 1;
                         
-                        // ✅ FIXED: Transition back to IDLE after outputting all samples
                         if (out_count == FFT_SIZE - 1) begin
                             state <= IDLE;
                             done <= 1;
-                            out_valid <= 0;
-                            $display("[%0t] ✅ FFT_WRAPPER: Completed output, returning to IDLE", $time);
+                            // ✅ FIX: Don't override out_valid here!
+                            // Let it stay 1 for this cycle, it will be cleared in IDLE state
                         end
                     end else begin
                         out_valid <= 0;

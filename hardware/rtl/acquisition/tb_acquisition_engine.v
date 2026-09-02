@@ -8,6 +8,7 @@ module tb_acquisition_engine;
     parameter DATA_WIDTH = 18;
     parameter PHASE_BITS = 48;
     parameter IDX_WIDTH = 12;
+    parameter TIMEOUT_CYCLES = 500000; // 500k cycles timeout (~2.5ms at 200MHz)
 
     integer wait_count;
     integer i;
@@ -53,6 +54,7 @@ module tb_acquisition_engine;
         .peak_magnitude(peak_magnitude)
     );
 
+    // Clock generation
     initial begin
         clk_100 = 0;
         forever #(CLK_100_PERIOD/2) clk_100 = ~clk_100;
@@ -63,6 +65,7 @@ module tb_acquisition_engine;
         forever #(CLK_200_PERIOD/2) clk_200 = ~clk_200;
     end
 
+    // Load stimulus files
     initial begin
         $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/stim_i.hex", stim_i_mem);
         $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/stim_q.hex", stim_q_mem);
@@ -73,45 +76,58 @@ module tb_acquisition_engine;
         $display("======================================================");
     end
 
-    integer load_fwd_count;
-    initial begin load_fwd_count = 0; end
-    always @(posedge clk_200) begin
-        if (uut.state == 4'd3) begin
-            load_fwd_count <= load_fwd_count + 1;
-            if (load_fwd_count % 1000 == 0 || load_fwd_count < 10) begin
-                $display("[%0t] DEBUG LOAD_FWD: sample_cnt=%0d, fft_in_valid=%b, fft_in_ready=%b", 
-                         $time, uut.sample_cnt, uut.fft_in_valid, uut.fft_in_ready);
-            end
-            if (load_fwd_count > 10000) begin
-                $display("[%0t] ⚠️ ERROR: Stuck in ST_LOAD_FWD!", $time);
-                $finish;
-            end
-        end else begin
-            load_fwd_count <= 0;
-        end
-    end
-
-    integer stream_mult_count;
-    initial begin stream_mult_count = 0; end
-    always @(posedge clk_200) begin
-        if (uut.state == 4'd4) begin
-            stream_mult_count <= stream_mult_count + 1;
-            if (stream_mult_count < 10 || stream_mult_count % 5000 == 0) begin
-                $display("[%0t] DEBUG STREAM_MULT: sample_cnt=%0d, rom_cnt=%0d, fft_out_valid=%b, mult_valid=%b", 
-                         $time, uut.sample_cnt, uut.rom_cnt, uut.fft_out_valid, uut.mult_valid);
-            end
-            if (stream_mult_count > 60000) begin
-                $display("[%0t] ⚠️ ERROR: Stuck in ST_STREAM_MULT!", $time);
-                $finish;
-            end
-        end else begin
-            stream_mult_count <= 0;
-        end
-    end
-
+    // Watchdog timer - monitors if simulation is stuck
+    reg [31:0] watchdog_counter;
     reg [3:0] prev_state;
+    reg prev_fft_out_valid;
+    reg prev_pd_done;
+    
     always @(posedge clk_200) begin
-        if (uut.state !== prev_state) begin
+        if (!rst_n) begin
+            watchdog_counter <= 0;
+            prev_state <= 4'd0;
+            prev_fft_out_valid <= 0;
+            prev_pd_done <= 0;
+        end else begin
+            // Check if any key signal changed
+            if (uut.state !== prev_state || 
+                uut.fft_out_valid !== prev_fft_out_valid || 
+                uut.pd_done !== prev_pd_done) begin
+                // Something changed, reset watchdog
+                watchdog_counter <= 0;
+                prev_state <= uut.state;
+                prev_fft_out_valid <= uut.fft_out_valid;
+                prev_pd_done <= uut.pd_done;
+            end else begin
+                // Nothing changed, increment watchdog
+                watchdog_counter <= watchdog_counter + 1;
+                
+                // Print status every 100k cycles when stuck
+                if (watchdog_counter > 0 && watchdog_counter % 100000 == 0) begin
+                    $display("[%0t] ⚠️ WATCHDOG: No state change for %0d cycles. State=%0d, fft_out_valid=%b, pd_done=%b", 
+                             $time, watchdog_counter, uut.state, uut.fft_out_valid, uut.pd_done);
+                end
+                
+                // Timeout - stop simulation
+                if (watchdog_counter >= TIMEOUT_CYCLES) begin
+                    $display("[%0t] ❌ TIMEOUT: Simulation stuck for %0d cycles!", $time, TIMEOUT_CYCLES);
+                    $display("   Final State: %0d", uut.state);
+                    $display("   fft_out_valid: %b", uut.fft_out_valid);
+                    $display("   pd_done: %b", uut.pd_done);
+                    $display("   sample_cnt: %0d", uut.sample_cnt);
+                    $display("   fft_wrapper state: %0d", uut.u_fft.state);
+                    $display("   fft_wrapper sample_count: %0d", uut.u_fft.sample_count);
+                    $display("   fft_wrapper out_count: %0d", uut.u_fft.out_count);
+                    $finish;
+                end
+            end
+        end
+    end
+
+    // State transition monitor
+    reg [3:0] prev_state_monitor;
+    always @(posedge clk_200) begin
+        if (uut.state !== prev_state_monitor) begin
             case (uut.state)
                 4'd0: $display("[%0t] STATE: IDLE", $time);
                 4'd1: $display("[%0t] STATE: WAIT_FIFO", $time);
@@ -119,20 +135,35 @@ module tb_acquisition_engine;
                 4'd3: $display("[%0t] STATE: LOAD_FWD (Starting Forward FFT)", $time);
                 4'd4: $display("[%0t] STATE: STREAM_MULT (Waiting for FFT output & Multiplying)", $time);
                 4'd5: $display("[%0t] STATE: LOAD_INV (Starting IFFT)", $time);
-                4'd6: $display("[%0t] STATE: WAIT_INV", $time);
+                4'd6: $display("[%0t] STATE: WAIT_INV (Waiting for IFFT completion)", $time);
                 4'd7: $display("[%0t] STATE: DONE", $time);
             endcase
-            prev_state <= uut.state;
+            prev_state_monitor <= uut.state;
         end
     end
 
+    // FFT wrapper state monitor
+    reg [2:0] prev_fft_state;
+    always @(posedge clk_200) begin
+        if (uut.u_fft.state !== prev_fft_state) begin
+            case (uut.u_fft.state)
+                3'd0: $display("[%0t]   FFT_WRAPPER: IDLE", $time);
+                3'd1: $display("[%0t]   FFT_WRAPPER: LOAD", $time);
+                3'd2: $display("[%0t]   FFT_WRAPPER: UNLOAD", $time);
+            endcase
+            prev_fft_state <= uut.u_fft.state;
+        end
+    end
+
+    // Main stimulus and control
     initial begin
         rst_n = 0;
         start = 0;
         stim_i = 0;
         stim_q = 0;
         stim_valid = 0;
-        prev_state = 4'd0;
+        prev_state_monitor = 4'd0;
+        prev_fft_state = 3'd0;
 
         #(CLK_100_PERIOD * 5);
         rst_n = 1;
@@ -160,15 +191,8 @@ module tb_acquisition_engine;
         #(CLK_200_PERIOD);
         start = 0;
 
-        wait_count = 0;
-        while (done !== 1 && wait_count < 5000000) begin
-            @(posedge clk_200);
-            wait_count = wait_count + 1;
-        end
-        
-        if (wait_count >= 5000000) begin
-            $display("\n⚠️ WARNING: Acquisition timed out!");
-        end
+        // Wait for completion or timeout
+        wait (done === 1'b1);
         
         #(CLK_200_PERIOD * 10);
 
@@ -188,4 +212,5 @@ module tb_acquisition_engine;
 
         $finish;
     end
+
 endmodule
