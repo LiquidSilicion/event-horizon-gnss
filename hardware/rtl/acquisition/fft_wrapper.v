@@ -20,12 +20,7 @@ module fft_wrapper #(
     input wire inverse
 );
 
-    // =========================================================================
-    // CRITICAL FIX: Xilinx FFT v9.1 Radix-4 Burst I/O Configuration Format
-    // Bits [7:4] : NFFT (12 = 4096 points, since 2^12 = 4096)
-    // Bits [3:1] : CP_LEN (000 = No Cyclic Prefix)
-    // Bit 0      : FWD_INV (0 = Forward, 1 = Inverse)
-    // =========================================================================
+    // 8-bit Config: {4'd12 (NFFT=4096), 3'b000 (No CP), inverse (FWD_INV)}
     wire [7:0] config_tdata = {4'd12, 3'b000, inverse};
     
     reg config_valid_reg;
@@ -33,19 +28,11 @@ module fft_wrapper #(
     wire config_tready;
     
     always @(posedge clk) begin
-        if (!rst_n) begin
-            config_valid_reg <= 1'b0;
-        end else if (start) begin
-            config_valid_reg <= 1'b1; // Latch high on start pulse
-        end else if (config_tready) begin
-            config_valid_reg <= 1'b0; // Drop only when FFT IP acknowledges
-        end
+        if (!rst_n) config_valid_reg <= 1'b0;
+        else if (start) config_valid_reg <= 1'b1;
+        else if (config_tready) config_valid_reg <= 1'b0;
     end
 
-    // =========================================================================
-    // AXI4-Stream Data Ports (48-bit padded for 18-bit data)
-    // Format: {6'b0, Real}[47:24], {6'b0, Imag}[23:0]
-    // =========================================================================
     wire [47:0] s_axis_data_tdata = { {6'b0, i_in}, {6'b0, q_in} }; 
     wire s_axis_data_tvalid;
     wire s_axis_data_tready;
@@ -56,12 +43,18 @@ module fft_wrapper #(
     wire m_axis_data_tready = out_ready;
     wire m_axis_data_tlast;
     
-    // This line is perfectly correct. It passes the FFT's ready signal upstream.
     assign in_ready = s_axis_data_tready;
 
-    // =========================================================================
-    // Xilinx FFT IP Instantiation
-    // =========================================================================
+    // CRITICAL DEBUG: Prove the IP is receiving the last sample
+    always @(posedge clk) begin
+        if (s_axis_data_tvalid && s_axis_data_tready && s_axis_data_tlast) begin
+            $display("[%0t] ✅ FFT_WRAPPER: LAST SAMPLE (tlast=1) SENT TO IP!", $time);
+        end
+        if (m_axis_data_tvalid) begin
+            $display("[%0t] ✅ FFT_WRAPPER: IP IS OUTPUTTING DATA!", $time);
+        end
+    end
+
     fft_acq_4096_18b u_fft (
         .aclk(clk),
         .aclken(1'b1),
@@ -89,58 +82,40 @@ module fft_wrapper #(
         .event_data_out_channel_halt()
     );
     
-    // =========================================================================
-    // Control State Machine
-    // =========================================================================
-    localparam IDLE = 3'd0;
-    localparam LOAD = 3'd1;
-    localparam UNLOAD = 3'd2;
-    
+    localparam IDLE = 3'd0, LOAD = 3'd1, UNLOAD = 3'd2;
     reg [2:0] state;
     reg [11:0] sample_count;
     reg [11:0] out_count;
     
     always @(posedge clk) begin
         if (!rst_n) begin
-            state <= IDLE;
-            done <= 0;
-            out_valid <= 0;
-            i_out <= 0;
-            q_out <= 0;
-            out_index <= 0;
-            sample_count <= 0;
-            out_count <= 0;
+            state <= IDLE; done <= 0; out_valid <= 0;
+            i_out <= 0; q_out <= 0; out_index <= 0;
+            sample_count <= 0; out_count <= 0;
         end else begin
             case (state)
                 IDLE: begin
-                    done <= 0;
-                    out_valid <= 0;
-                    sample_count <= 0;
-                    out_count <= 0;
+                    done <= 0; out_valid <= 0; sample_count <= 0; out_count <= 0;
                     if (start) state <= LOAD;
                 end
-                
                 LOAD: begin
                     if (in_valid && s_axis_data_tready) begin
                         sample_count <= sample_count + 1;
-                        if (sample_count == FFT_SIZE - 1) state <= UNLOAD;
+                        if (sample_count == FFT_SIZE - 1) begin
+                            state <= UNLOAD;
+                            $display("[%0t] ✅ FFT_WRAPPER: Transitioning to UNLOAD", $time);
+                        end
                     end
                 end
-                
                 UNLOAD: begin
                     if (m_axis_data_tvalid && out_ready) begin
-                        // Extract 18-bit data from 48-bit padded bus
                         i_out <= m_axis_data_tdata[41:24]; 
                         q_out <= m_axis_data_tdata[17:0];              
                         out_index <= out_count;
-                        
                         out_count <= out_count + 1;
                         out_valid <= 1;
-                        
                         if (m_axis_data_tlast || out_count == FFT_SIZE - 1) begin
-                            state <= IDLE;
-                            done <= 1;
-                            out_valid <= 0;
+                            state <= IDLE; done <= 1; out_valid <= 0;
                         end
                     end else begin
                         out_valid <= 0;
@@ -152,5 +127,4 @@ module fft_wrapper #(
     
     assign s_axis_data_tvalid = (state == LOAD) && in_valid;
     assign s_axis_data_tlast  = (state == LOAD) && in_valid && (sample_count == FFT_SIZE - 1);
-
 endmodule
