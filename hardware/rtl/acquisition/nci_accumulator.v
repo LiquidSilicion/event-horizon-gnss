@@ -8,7 +8,9 @@ module nci_accumulator #(
     input  wire                    clk,
     input  wire                    rst_n,
     
-    input  wire                    clear,          // Pulse to clear memory
+    input  wire                    clear,          
+    output wire                    clear_done,     // ✅ NEW: Indicates memory is fully cleared
+    
     input  wire                    fft_out_valid,
     input  wire signed [DATA_WIDTH-1:0] i_in,
     input  wire signed [DATA_WIDTH-1:0] q_in,
@@ -28,7 +30,14 @@ module nci_accumulator #(
     wire [MAG_WIDTH-1:0] magnitude = (i_sq + q_sq) >>> 8;
     
     assign mag_out = accum_mem[read_addr];
+    assign clear_done = !clearing; // ✅ NEW: High when not clearing
     
+    // Optional: Initialize to 0 for clean simulation
+    initial begin
+        integer i;
+        for (i = 0; i < FFT_SIZE; i = i + 1) accum_mem[i] = 0;
+    end
+
     always @(posedge clk) begin
         if (!rst_n) begin
             sample_cnt <= 0;
