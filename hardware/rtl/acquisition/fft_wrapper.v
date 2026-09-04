@@ -17,6 +17,7 @@ module fft_wrapper #(
     output reg [11:0] out_index,
     output reg out_valid,
     input wire out_ready,
+    output wire out_tlast,
     input wire inverse
 );
 
@@ -43,6 +44,7 @@ module fft_wrapper #(
     wire m_axis_data_tlast;
     
     assign in_ready = s_axis_data_tready;
+    assign out_tlast = m_axis_data_tlast; // ✅ MAPPED
 
     fft_acq_4096_18b u_fft (
         .aclk(clk),
