@@ -1,62 +1,63 @@
 `timescale 1ns / 1ps
 
 module nci_accumulator #(
-    parameter FFT_SIZE     = 4096,
-    parameter DATA_WIDTH   = 18,
-    parameter MAG_WIDTH    = 32
+    parameter FFT_SIZE = 4096,
+    parameter DATA_WIDTH = 18,
+    parameter MAG_WIDTH = 32
 )(
     input  wire                    clk,
     input  wire                    rst_n,
-    
-    input  wire                    clear,          
-    output wire                    clear_done,     // ✅ NEW: Indicates memory is fully cleared
-    
-    input  wire                    fft_out_valid,
+    input  wire                    clear,              // Asserted at start of each Doppler bin
+    input  wire                    fft_out_valid,      // Gated with state in parent module
     input  wire signed [DATA_WIDTH-1:0] i_in,
     input  wire signed [DATA_WIDTH-1:0] q_in,
-    
     output wire [MAG_WIDTH-1:0]    mag_out,
     input  wire [11:0]             read_addr
 );
 
     reg [MAG_WIDTH-1:0] accum_mem [0:FFT_SIZE-1];
-    reg [11:0] sample_cnt;
-    reg clearing;
+    reg        clearing;
     reg [11:0] clear_addr;
-    
-    // 18-bit * 18-bit = 36-bit. Shift right by 8 to prevent overflow over 20 frames.
+    reg [11:0] accum_addr;
+
+    // Compute magnitude squared: I² + Q², scaled to prevent overflow
     wire signed [2*DATA_WIDTH-1:0] i_sq = i_in * i_in;
     wire signed [2*DATA_WIDTH-1:0] q_sq = q_in * q_in;
     wire [MAG_WIDTH-1:0] magnitude = (i_sq + q_sq) >>> 8;
-    
-    assign mag_out = accum_mem[read_addr];
-    assign clear_done = !clearing; // ✅ NEW: High when not clearing
-    
-    // Optional: Initialize to 0 for clean simulation
-    initial begin
-        integer i;
-        for (i = 0; i < FFT_SIZE; i = i + 1) accum_mem[i] = 0;
-    end
 
+    // Parallel read interface
+    assign mag_out = accum_mem[read_addr];
+
+    // Sequential write interface
     always @(posedge clk) begin
         if (!rst_n) begin
-            sample_cnt <= 0;
-            clearing <= 0;
-            clear_addr <= 0;
+            clearing   <= 1'b0;
+            clear_addr <= 12'd0;
+            accum_addr <= 12'd0;
         end else begin
             if (clear) begin
-                clearing <= 1'b1;
-                clear_addr <= 0;
-                sample_cnt <= 0;
+                // Start clearing sequence
+                clearing   <= 1'b1;
+                clear_addr <= 12'd0;
+                accum_addr <= 12'd0;
             end else if (clearing) begin
-                accum_mem[clear_addr] <= 0;
-                if (clear_addr == FFT_SIZE - 1) clearing <= 0;
-                else clear_addr <= clear_addr + 1;
+                // Clear one address per cycle
+                accum_mem[clear_addr] <= {MAG_WIDTH{1'b0}};
+                if (clear_addr == FFT_SIZE - 1) begin
+                    clearing <= 1'b0;
+                end else begin
+                    clear_addr <= clear_addr + 1;
+                end
             end else if (fft_out_valid) begin
-                accum_mem[sample_cnt] <= accum_mem[sample_cnt] + magnitude;
-                if (sample_cnt == FFT_SIZE - 1) sample_cnt <= 0;
-                else sample_cnt <= sample_cnt + 1;
+                // Accumulate magnitude squared
+                accum_mem[accum_addr] <= accum_mem[accum_addr] + magnitude;
+                if (accum_addr == FFT_SIZE - 1) begin
+                    accum_addr <= 12'd0;
+                end else begin
+                    accum_addr <= accum_addr + 1;
+                end
             end
         end
     end
+
 endmodule

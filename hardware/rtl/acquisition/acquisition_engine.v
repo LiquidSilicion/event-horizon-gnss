@@ -49,6 +49,23 @@ module acquisition_engine #(
     reg [31:0]            acq_peak_mag;
     wire                  fft_tlast;
 
+    // =========================================================================
+    // Local State Machine
+    // =========================================================================
+    reg [3:0] state;
+    reg [4:0] nci_count;
+    reg       acq_start_latched; // ✅ FIX 3: Latch start pulse to wait for clear
+    
+    localparam [3:0] ST_IDLE        = 4'd0;
+    localparam [3:0] ST_WAIT_FIFO   = 4'd1;
+    localparam [3:0] ST_WIPEOFF     = 4'd2;
+    localparam [3:0] ST_LOAD_FWD    = 4'd3;
+    localparam [3:0] ST_STREAM_MULT = 4'd4;
+    localparam [3:0] ST_LOAD_INV    = 4'd5;
+    localparam [3:0] ST_WAIT_INV    = 4'd6;
+    localparam [3:0] ST_NCI_SCAN    = 4'd7; 
+    localparam [3:0] ST_DONE        = 4'd8;
+
     doppler_search_controller #(
         .FFT_SIZE(FFT_SIZE),
         .PHASE_BITS(PHASE_BITS),
@@ -129,11 +146,13 @@ module acquisition_engine #(
     );
 
     // =========================================================================
-    // 2. NCI Accumulator
+    // 5. NCI Accumulator (FIXED - only accumulates during IFFT phase)
     // =========================================================================
     wire [31:0] nci_mag_out;
     reg  [11:0] nci_read_addr;
-    wire        nci_clear_done; // ✅ FIX 3: Wait for this before starting
+    
+    // ✅ CRITICAL FIX: Only accumulate during inverse FFT output phase
+    wire nci_accumulate_enable = fft_out_valid && (state == ST_WAIT_INV);
     
     nci_accumulator #(
         .FFT_SIZE(FFT_SIZE),
@@ -141,31 +160,14 @@ module acquisition_engine #(
     ) u_nci (
         .clk(clk_200),
         .rst_n(rst_n),
-        .clear(acq_start),              
-        .clear_done(nci_clear_done),    // ✅ NEW PORT
-        .fft_out_valid(nci_fft_valid),  
+        .clear(acq_start),
+        .fft_out_valid(nci_accumulate_enable),  // ✅ GATED with state
         .i_in(fft_i_out),
         .q_in(fft_q_out),
-        .mag_out(nci_mag_out),          
-        .read_addr(nci_read_addr)       
+        .mag_out(nci_mag_out),
+        .read_addr(nci_read_addr)
     );
 
-    // =========================================================================
-    // Local State Machine
-    // =========================================================================
-    reg [3:0] state;
-    reg [4:0] nci_count;
-    reg       acq_start_latched; // ✅ FIX 3: Latch start pulse to wait for clear
-    
-    localparam [3:0] ST_IDLE        = 4'd0;
-    localparam [3:0] ST_WAIT_FIFO   = 4'd1;
-    localparam [3:0] ST_WIPEOFF     = 4'd2;
-    localparam [3:0] ST_LOAD_FWD    = 4'd3;
-    localparam [3:0] ST_STREAM_MULT = 4'd4;
-    localparam [3:0] ST_LOAD_INV    = 4'd5;
-    localparam [3:0] ST_WAIT_INV    = 4'd6;
-    localparam [3:0] ST_NCI_SCAN    = 4'd7; 
-    localparam [3:0] ST_DONE        = 4'd8;
 
     always @(posedge clk_200) begin
         if (!rst_n) begin
@@ -293,15 +295,19 @@ module acquisition_engine #(
 
                 ST_WAIT_INV: begin
                     fft_in_valid <= 1'b0;
-                    if (fft_done) begin 
+                    
+                    // Wait for IFFT to complete one frame
+                    if (fft_done) begin
                         if (nci_count == NCI_FRAMES - 1) begin
+                            // All frames accumulated - scan for peak
                             state <= ST_NCI_SCAN;
                             nci_read_addr <= 0;
                             acq_peak_mag <= 0;
                             acq_code_phase <= 0;
                         end else begin
+                            // More frames to accumulate
                             nci_count <= nci_count + 1;
-                            state <= ST_WAIT_FIFO; 
+                            state <= ST_WAIT_FIFO;  // Go get more data
                         end
                     end
                 end

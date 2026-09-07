@@ -15,7 +15,7 @@ module tb_acquisition_engine;
     
     parameter DOPPLER_STEP_HZ = 1000;
     parameter NUM_DOPPLER_BINS = 11;
-    parameter NCI_FRAMES = 3;
+    parameter NCI_FRAMES = 20;
     
     reg [15:0] stim_i_mem [0:FFT_SIZE-1];
     reg [15:0] stim_q_mem [0:FFT_SIZE-1];

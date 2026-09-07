@@ -1,0 +1,430 @@
+relaunch_sim
+INFO: xsimkernel Simulation Memory Usage: 316764 KB (Peak: 366100 KB), Simulation CPU Usage: 60480 ms
+Command: launch_simulation -step compile -simset sim_1 -mode behavioral
+INFO: [Vivado 12-25911] Executing simulation for 'XSim' simulator
+INFO: [Project 1-5737] Running on host johan2-Yoga-7-15ITL5 (64) - Ubuntu 22.04.5 LTS
+INFO: [Vivado 12-28535] Process started - Thu Sep  3 12:13:43 2026
+
+INFO: [Vivado 12-12493] Simulation top is 'tb_acquisition_engine'
+INFO: [Vivado 12-5698] Checking validity of IPs in the design for the 'XSim' simulator...
+INFO: [Vivado 12-5682] Launching behavioral simulation in '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim'
+INFO: [Vivado 12-4795] Using compiled simulation libraries for IPs
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [SIM-utils-72] Using boost library from '/opt/Xilinx/2025.2/tps/boost_1_72_0'
+INFO: [USF-XSim-7] Finding pre-compiled libraries...
+INFO: [USF-XSim-11] File '/opt/Xilinx/2025.2/data/xsim/xsim.ini' copied to run dir:'/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim'
+INFO: [SIM-utils-54] Inspecting design source files for 'tb_acquisition_engine' in fileset 'sim_1'...
+INFO: [SIM-utils-43] Exported '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim/all_prns_fft_q.hex'
+INFO: [SIM-utils-43] Exported '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim/nco_sin.hex'
+INFO: [SIM-utils-43] Exported '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim/nco_cos.hex'
+INFO: [SIM-utils-43] Exported '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim/all_prns_fft_i.hex'
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim'
+xvlog --incr --relax -prj tb_acquisition_engine_vlog.prj
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/event_horizon_acquisition/event_horizon_acquisition.gen/sources_1/ip/fifo_fft_bridge/sim/fifo_fft_bridge.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module fifo_fft_bridge
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/acquisition_engine.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module acquisition_engine
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/code_fft_rom.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module code_fft_rom
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/complex_multiplier.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module complex_multiplier
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/fft_fifo_bridge.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module fft_fifo_bridge
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/fft_wrapper.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module fft_wrapper
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/nco_rom.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module nco_rom
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/peak_detector.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module peak_detector
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/tb_acquisition_engine.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module tb_acquisition_engine
+xvhdl --incr --relax -prj tb_acquisition_engine_vhdl.prj
+Waiting for jobs to finish...
+No pending jobs, compilation finished.
+execute_script: Time (s): cpu = 00:00:09 ; elapsed = 00:00:08 . Memory (MB): peak = 10311.922 ; gain = 0.000 ; free physical = 1344 ; free virtual = 8071
+INFO: [USF-XSim-69] 'compile' step finished in '8' seconds
+launch_simulation: Time (s): cpu = 00:00:15 ; elapsed = 00:00:13 . Memory (MB): peak = 10311.922 ; gain = 0.000 ; free physical = 1344 ; free virtual = 8071
+Command: launch_simulation -step elaborate -simset sim_1 -mode behavioral
+INFO: [Vivado 12-25911] Executing simulation for 'XSim' simulator
+INFO: [Project 1-5737] Running on host johan2-Yoga-7-15ITL5 (64) - Ubuntu 22.04.5 LTS
+INFO: [Vivado 12-28535] Process started - Thu Sep  3 12:13:56 2026
+
+INFO: [Vivado 12-12493] Simulation top is 'tb_acquisition_engine'
+INFO: [Vivado 12-5698] Checking validity of IPs in the design for the 'XSim' simulator...
+INFO: [Vivado 12-5682] Launching behavioral simulation in '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim'
+INFO: [Vivado 12-4795] Using compiled simulation libraries for IPs
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/johan2/event_horizon_acquisition/event_horizon_acquisition.sim/sim_1/behav/xsim'
+xelab --incr --debug typical --relax --mt 8 -L xil_defaultlib -L xbip_utils_v3_0_15 -L axi_utils_v2_0_11 -L c_reg_fd_v12_0_11 -L xbip_dsp48_wrapper_v3_0_7 -L xbip_pipe_v3_0_11 -L c_addsub_v12_0_21 -L c_shift_ram_v12_0_20 -L mult_gen_v12_0_24 -L floating_point_v7_1_21 -L cmpy_v6_0_27 -L xfft_v9_1_15 -L fifo_generator_v13_2_14 -L unisims_ver -L unimacro_ver -L secureip -L xpm --snapshot tb_acquisition_engine_behav xil_defaultlib.tb_acquisition_engine xil_defaultlib.glbl -log elaborate.log
+Vivado Simulator v2025.2
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: /opt/Xilinx/2025.2/Vivado/bin/unwrapped/lnx64.o/xelab --incr --debug typical --relax --mt 8 -L xil_defaultlib -L xbip_utils_v3_0_15 -L axi_utils_v2_0_11 -L c_reg_fd_v12_0_11 -L xbip_dsp48_wrapper_v3_0_7 -L xbip_pipe_v3_0_11 -L c_addsub_v12_0_21 -L c_shift_ram_v12_0_20 -L mult_gen_v12_0_24 -L floating_point_v7_1_21 -L cmpy_v6_0_27 -L xfft_v9_1_15 -L fifo_generator_v13_2_14 -L unisims_ver -L unimacro_ver -L secureip -L xpm --snapshot tb_acquisition_engine_behav xil_defaultlib.tb_acquisition_engine xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+WARNING: [XSIM 43-3431] One or more environment variables have been detected which affect the operation of the C compiler. These are typically not set in standard installations and are not tested by AMD, however they may be appropriate for your system, so the flow will attempt to continue.  If errors occur, try running xelab with the "-mt off -v 1" switches to see more information from the C compiler. The following environment variables have been detected:
+    LIBRARY_PATH
+Starting static elaboration
+Pass Through NonSizing Optimizer
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling package std.standard
+Compiling package std.textio
+Compiling package ieee.std_logic_1164
+Compiling package ieee.std_logic_arith
+Compiling package ieee.std_logic_unsigned
+Compiling package synopsys.attributes
+Compiling package ieee.std_logic_misc
+Compiling package fifo_generator_v13_2_14.fifo_generator_v13_2_14_pkg
+Compiling package xpm.vcomponents
+Compiling package ieee.numeric_std
+Compiling package unisim.vcomponents
+Compiling package ieee.vital_timing
+Compiling package ieee.vital_primitives
+Compiling package unisim.vpkg
+Compiling package xbip_utils_v3_0_15.xbip_utils_v3_0_15_pkg
+Compiling package xfft_v9_1_15.xfft_v9_1_15_viv_comp
+Compiling package ieee.math_real
+Compiling package axi_utils_v2_0_11.axi_utils_v2_0_11_pkg
+Compiling package mult_gen_v12_0_24.mult_gen_v12_0_24_pkg
+Compiling package ieee.std_logic_signed
+Compiling package cmpy_v6_0_27.cmpy_v6_0_27_pkg
+Compiling package floating_point_v7_1_21.floating_point_v7_1_21_consts
+Compiling package floating_point_v7_1_21.floating_point_v7_1_21_exp_table...
+Compiling package floating_point_v7_1_21.floating_point_v7_1_21_pkg
+Compiling package xfft_v9_1_15.pkg
+Compiling package xfft_v9_1_15.xfft_v9_1_15_axi_pkg
+Compiling package axi_utils_v2_0_11.global_util_pkg
+Compiling package axi_utils_v2_0_11.axi_utils_comps
+Compiling package xbip_pipe_v3_0_11.xbip_pipe_v3_0_11_viv_comp
+Compiling package c_addsub_v12_0_21.c_addsub_v12_0_21_pkg
+Compiling package c_addsub_v12_0_21.c_addsub_v12_0_21_pkg_legacy
+Compiling package c_reg_fd_v12_0_11.c_reg_fd_v12_0_11_viv_comp
+Compiling package c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_pkg
+Compiling package xfft_v9_1_15.quarter_sin_tw_table
+Compiling package ieee.std_logic_textio
+Compiling architecture amd of entity fifo_generator_v13_2_14.reset_builtin [\reset_builtin(c_common_clock=0,...]
+Compiling architecture ff36_internal_vhdl_v of entity unisim.FF36_INTERNAL_VHDL [\FF36_INTERNAL_VHDL(almost_full_...]
+Compiling architecture fifo36e1_v of entity unisim.FIFO36E1 [\FIFO36E1(almost_full_offset="00...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.builtin_prim_v6 [\builtin_prim_v6(c_family="7SERI...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.builtin_extdepth_v6 [\builtin_extdepth_v6(c_family="7...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.builtin_top_v6 [\builtin_top_v6(c_family="7SERIE...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.input_blk [\input_blk(c_common_clock=0,c_di...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.output_blk [\output_blk(c_dout_width=64,c_pk...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.fifo_generator_v13_2_14_builtin [\fifo_generator_v13_2_14_builtin...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.fifo_generator_top [\fifo_generator_top(c_family="vi...]
+Compiling architecture amd of entity fifo_generator_v13_2_14.fifo_generator_v13_2_14_synth [\fifo_generator_v13_2_14_synth(c...]
+Compiling module xil_defaultlib.fifo_fft_bridge
+Compiling module xil_defaultlib.fft_fifo_bridge
+Compiling module xil_defaultlib.nco_rom
+Compiling module xil_defaultlib.code_fft_rom_default
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus2 [\mux_bus2(c_xdevicefamily="zynq"...]
+Compiling architecture rb18_internal_vhdl_v of entity unisim.RB18_INTERNAL_VHDL [\RB18_INTERNAL_VHDL(bram_size=18...]
+Compiling architecture ramb18e1_v of entity unisim.RAMB18E1 [\RAMB18E1(dob_reg=1,read_width_b...]
+Compiling architecture ramb18_v of entity unisim.RAMB18 [\RAMB18(dob_reg=1,read_width_b=1...]
+Compiling architecture xilinx of entity xfft_v9_1_15.dpm [\dpm(c_xdevicefamily="zynq",widt...]
+Compiling architecture xilinx of entity xfft_v9_1_15.max2_2 [max2_2_default]
+Compiling architecture xilinx of entity xfft_v9_1_15.in_ranger [in_ranger_default]
+Compiling architecture xilinx of entity xfft_v9_1_15.range_r4 [range_r4_default]
+Compiling architecture xilinx of entity xfft_v9_1_15.r4_ranger [r4_ranger_default]
+Compiling architecture xilinx of entity xfft_v9_1_15.scale_logic [scale_logic_default]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus4 [\mux_bus4(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.in_switch4 [\in_switch4(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture dsp48e1_v of entity unisim.DSP48E1 [\DSP48E1(adreg=0,carryinreg=0,ca...]
+Compiling architecture dsp48e_v of entity unisim.DSP48E [\DSP48E(carryinreg=0,carryinselr...]
+Compiling architecture xilinx of entity xfft_v9_1_15.butterfly_DSP48E_SIMD_bypass [\butterfly_DSP48E_SIMD_bypass(da...]
+Compiling architecture xilinx of entity xfft_v9_1_15.bf_dsp_bypass [\bf_dsp_bypass(c_xdevicefamily="...]
+Compiling architecture xilinx of entity xfft_v9_1_15.butterfly_DSP48E_SIMD_mul_j_bypass [\butterfly_DSP48E_SIMD_mul_j_byp...]
+Compiling architecture xilinx of entity xfft_v9_1_15.bf_dsp_mul_j_bypass [\bf_dsp_mul_j_bypass(c_xdevicefa...]
+Compiling architecture dsp48e1_v of entity unisim.DSP48E1 [\DSP48E1(adreg=0,carryinreg=0,ca...]
+Compiling architecture dsp48e_v of entity unisim.DSP48E [\DSP48E(carryinreg=0,carryinselr...]
+Compiling architecture xilinx of entity xfft_v9_1_15.butterfly_DSP48E_SIMD [\butterfly_DSP48E_SIMD(data_widt...]
+Compiling architecture xilinx of entity xfft_v9_1_15.bf_dsp [\bf_dsp(c_xdevicefamily="zynq",d...]
+Compiling architecture xilinx of entity xfft_v9_1_15.dragonfly_DSP48_bypass [\dragonfly_DSP48_bypass(c_xdevic...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.delay_line [\delay_line(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.delay_line [\delay_line(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.delay_line [\delay_line(c_xdevicefamily="zyn...]
+Compiling architecture dsp48e1_v of entity unisim.DSP48E1 [\DSP48E1(adreg=0,carryinselreg=0...]
+Compiling architecture dsp48e1_v of entity unisim.DSP48E1 [\DSP48E1(acascreg=2,adreg=0,areg...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.delay_line [\delay_line(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity mult_gen_v12_0_24.op_resize [\op_resize(ai_width=19,bi_width=...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.cmpy_4_dsp48_mult [\cmpy_4_dsp48_mult(c_xdevicefami...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.cmpy_4_dsp48 [\cmpy_4_dsp48(c_xdevicefamily="z...]
+Compiling architecture xilinx of entity cmpy_v6_0_27.cmpy_v6_0_27_synth [\cmpy_v6_0_27_synth(c_xdevicefam...]
+Compiling architecture xilinx of entity xfft_v9_1_15.cmpy [\cmpy(c_xdevicefamily="zynq",a_w...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus4 [\mux_bus4(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.arith_shift3 [\arith_shift3(c_xdevicefamily="z...]
+Compiling architecture xilinx of entity xfft_v9_1_15.logic_gate [\logic_gate(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.logic_gate [\logic_gate(c_xdevicefamily="zyn...]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture xilinx of entity xfft_v9_1_15.unbiased_round [\unbiased_round(c_xdevicefamily=...]
+Compiling architecture xilinx of entity xfft_v9_1_15.pe4 [\pe4(c_xdevicefamily="zynq",io_w...]
+Compiling architecture xilinx of entity xfft_v9_1_15.out_switch4 [\out_switch4(c_xdevicefamily="zy...]
+Compiling architecture xilinx of entity xfft_v9_1_15.r4_datapath [\r4_datapath(c_xdevicefamily="zy...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture fdre_v of entity unisim.FDRE [fdre_default]
+Compiling architecture fde_v of entity unisim.FDE [fde_default]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.reg_rs_rtl [reg_rs_rtl_default]
+Compiling architecture muxcy_v of entity unisim.MUXCY [muxcy_default]
+Compiling architecture xorcy_v of entity unisim.XORCY [xorcy_default]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture lut6_v of entity unisim.LUT6 [\LUT6(init="10010000000010010000...]
+Compiling architecture xilinx of entity xfft_v9_1_15.equ_rtl [\equ_rtl(c_xdevicefamily="zynq",...]
+Compiling architecture xilinx of entity xfft_v9_1_15.cnt_tc_rtl [\cnt_tc_rtl(c_xdevicefamily="zyn...]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture xilinx of entity xfft_v9_1_15.equ_rtl [\equ_rtl(c_xdevicefamily="zynq",...]
+Compiling architecture xilinx of entity xfft_v9_1_15.cnt_tc_rtl [\cnt_tc_rtl(c_xdevicefamily="zyn...]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture xilinx of entity xfft_v9_1_15.equ_rtl [\equ_rtl(c_xdevicefamily="zynq",...]
+Compiling architecture xilinx of entity xfft_v9_1_15.cnt_tc_rtl [\cnt_tc_rtl(c_xdevicefamily="zyn...]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture xilinx of entity xfft_v9_1_15.equ_rtl [\equ_rtl(c_xdevicefamily="zynq",...]
+Compiling architecture xilinx of entity xfft_v9_1_15.cnt_tc_rtl [\cnt_tc_rtl(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity xfft_v9_1_15.flow_control_b [\flow_control_b(c_xdevicefamily=...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture srl16e_v of entity unisim.SRL16E [\SRL16E(0,15)\]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture structural of entity c_reg_fd_v12_0_11.c_reg_fd_v12_0_11_viv [\c_reg_fd_v12_0_11_viv(c_sync_pr...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture struct of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_legacy [\c_shift_ram_v12_0_20_legacy(c_x...]
+Compiling architecture synth of entity c_shift_ram_v12_0_20.c_shift_ram_v12_0_20_viv [\c_shift_ram_v12_0_20_viv(c_xdev...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture lut6_v of entity unisim.LUT6 [\LUT6(init="11111111000000001111...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus4 [\mux_bus4(c_xdevicefamily="zynq"...]
+Compiling architecture muxf7_v of entity unisim.MUXF7 [muxf7_default]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus8 [\mux_bus8(c_xdevicefamily="zynq"...]
+Compiling architecture lut3_v of entity unisim.LUT3 [\LUT3(init="11001010")(0,7)\]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus2 [\mux_bus2(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.xor_bit_gate [\xor_bit_gate(c_inputs=5)\]
+Compiling architecture xilinx of entity xfft_v9_1_15.xor_bit_gate [\xor_bit_gate(c_inputs=20)\]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture structural of entity c_reg_fd_v12_0_11.c_reg_fd_v12_0_11_viv [\c_reg_fd_v12_0_11_viv(c_width=1...]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture xilinx of entity xfft_v9_1_15.subtracter [\subtracter(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus2 [\mux_bus2(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus2 [\mux_bus2(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.rw_addr_gen_b [\rw_addr_gen_b(c_xdevicefamily="...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus2 [\mux_bus2(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.out_addr_gen_b [\out_addr_gen_b(c_xdevicefamily=...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus8 [\mux_bus8(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus4 [\mux_bus4(c_xdevicefamily="zynq"...]
+Compiling architecture xilinx of entity xfft_v9_1_15.mux_bus8 [\mux_bus8(c_xdevicefamily="zynq"...]
+Compiling architecture rtl of entity c_addsub_v12_0_21.c_addsub_v12_0_21_lut6_legacy [\c_addsub_v12_0_21_lut6_legacy(c...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_fabric_legacy [\c_addsub_v12_0_21_fabric_legacy...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_legacy [\c_addsub_v12_0_21_legacy(c_fami...]
+Compiling architecture synth of entity c_addsub_v12_0_21.c_addsub_v12_0_21_viv [\c_addsub_v12_0_21_viv(c_xdevice...]
+Compiling architecture xilinx of entity xfft_v9_1_15.tw_gen_p4 [\tw_gen_p4(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.tw_addr_gen [\tw_addr_gen(c_xdevicefamily="zy...]
+Compiling architecture xilinx of entity xfft_v9_1_15.shift_ram [\shift_ram(c_xdevicefamily="zynq...]
+Compiling architecture xilinx of entity xfft_v9_1_15.twos_comp [\twos_comp(c_data_width=10,c_has...]
+Compiling architecture lut6_v of entity unisim.LUT6 [\LUT6(init="10000000000000000000...]
+Compiling architecture xilinx of entity xfft_v9_1_15.logic_gate [\logic_gate(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity xfft_v9_1_15.twgen_quarter_sin [\twgen_quarter_sin(c_xdevicefami...]
+Compiling architecture xilinx of entity xfft_v9_1_15.twiddle_gen [\twiddle_gen(c_xdevicefamily="zy...]
+Compiling architecture xilinx of entity xfft_v9_1_15.r4_control [\r4_control(c_xdevicefamily="zyn...]
+Compiling architecture xilinx of entity xfft_v9_1_15.xfft_v9_1_15_b [\xfft_v9_1_15_b(c_xdevicefamily=...]
+Compiling architecture synth of entity xfft_v9_1_15.xfft_v9_1_15_core [\xfft_v9_1_15_core(c_xdevicefami...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_srl_fifo [\glb_srl_fifo(width=37,has_uvpro...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_ifx_slave [\glb_ifx_slave(width=37,has_uvpr...]
+Compiling architecture synth of entity xfft_v9_1_15.axi_wrapper_input_fifo [\axi_wrapper_input_fifo(c_fifo_w...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_srl_fifo [\glb_srl_fifo(width=5,has_uvprot...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_ifx_master [\glb_ifx_master(width=5,afull_th...]
+Compiling architecture synth of entity xfft_v9_1_15.axi_wrapper_output_fifo [\axi_wrapper_output_fifo(c_fifo_...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_srl_fifo [\glb_srl_fifo(width=1,has_uvprot...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_ifx_slave [\glb_ifx_slave(width=1,has_uvpro...]
+Compiling architecture synth of entity xfft_v9_1_15.axi_wrapper_input_fifo [\axi_wrapper_input_fifo(c_fifo_w...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_srl_fifo [\glb_srl_fifo(width=42,has_uvpro...]
+Compiling architecture xilinx of entity axi_utils_v2_0_11.glb_ifx_master [\glb_ifx_master(width=42,afull_t...]
+Compiling architecture synth of entity xfft_v9_1_15.axi_wrapper_output_fifo [\axi_wrapper_output_fifo(c_fifo_...]
+Compiling architecture synth of entity xfft_v9_1_15.axi_wrapper [\axi_wrapper(c_nfft_max=12,c_arc...]
+Compiling architecture synth of entity xfft_v9_1_15.xfft_v9_1_15_viv [\xfft_v9_1_15_viv(c_xdevicefamil...]
+Compiling architecture xilinx of entity xfft_v9_1_15.xfft_v9_1_15 [\xfft_v9_1_15(c_xdevicefamily="z...]
+Compiling architecture fft_acq_4096_18b_arch of entity xil_defaultlib.fft_acq_4096_18b [fft_acq_4096_18b_default]
+Compiling module xil_defaultlib.fft_wrapper
+Compiling module xil_defaultlib.complex_multiplier
+Compiling module xil_defaultlib.peak_detector
+Compiling module xil_defaultlib.acquisition_engine
+Compiling module xil_defaultlib.tb_acquisition_engine
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot tb_acquisition_engine_behav
+execute_script: Time (s): cpu = 00:01:36 ; elapsed = 00:00:42 . Memory (MB): peak = 10311.922 ; gain = 0.000 ; free physical = 1364 ; free virtual = 8080
+INFO: [USF-XSim-69] 'elaborate' step finished in '42' seconds
+launch_simulation: Time (s): cpu = 00:01:40 ; elapsed = 00:00:46 . Memory (MB): peak = 10311.922 ; gain = 0.000 ; free physical = 1364 ; free virtual = 8080
+Time resolution is 1 ps
+======================================================
+✅ NCO ROMS LOADED SUCCESSFULLY
+   [DEBUG] NCO Addr 0 (0 deg):    cos = 131071 (0x1ffff), sin = 0 (0x00000)
+   [DEBUG] NCO Addr 1024 (90 deg):  cos = 0 (0x00000), sin = 131071 (0x1ffff)
+======================================================
+======================================================
+✅ CODE FFT ROM LOADED SUCCESSFULLY
+   [DEBUG] PRN 1, Bin 0: I = -20035 (0x3b1bd), Q = 0 (0x00000)
+   [DEBUG] PRN 1, Bin 1: I = -1371 (0x3faa5), Q = -34919 (0x37799)
+======================================================
+======================================================
+✅ STIMULUS LOADED - DC Bias Removal
+   Mean I = -317, Mean Q = -474
+   [DEBUG] Sample 0 (after DC removal): I = 1341, Q = -6951
+   [DEBUG] Sample 1 (after DC removal): I = -13508, Q = -12839
+======================================================
+Note:   - SCALING_SCH: in_ptr = 1, out_ptr = 1
+Time: 0 ps  Iteration: 0  Process: /tb_acquisition_engine/uut/u_fft/u_fft/U0/i_synth/axi_wrapper/gen_config_fifo_in/line__94240  File: /opt/Xilinx/2025.2/Vivado/data/ip/xilinx/xfft_v9_1/hdl/xfft_v9_1_vh_rfs.vhd
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note: Actual FIFO Depth = 8192
+Time: 0 ps  Iteration: 0
+Note:  DEPTH = 8192 WIDTH = 4 C_RD_PRIM_WIDTH = 4 C_RD_PRIM_DEPTH = 8192 DEEP = 1 WIDE = 16
+Time: 0 ps  Iteration: 0
+Note:   - SCALING_SCH: in_ptr = 1, out_ptr = 1
+Time: 0 ps  Iteration: 1  Process: /tb_acquisition_engine/uut/u_fft/u_fft/U0/i_synth/axi_wrapper/gen_config_fifo_in/line__94240  File: /opt/Xilinx/2025.2/Vivado/data/ip/xilinx/xfft_v9_1/hdl/xfft_v9_1_vh_rfs.vhd
+Note:   - SCALING_SCH: in_ptr = 1, out_ptr = 1
+Time: 2 ns  Iteration: 12  Process: /tb_acquisition_engine/uut/u_fft/u_fft/U0/i_synth/axi_wrapper/gen_config_fifo_in/line__94240  File: /opt/Xilinx/2025.2/Vivado/data/ip/xilinx/xfft_v9_1/hdl/xfft_v9_1_vh_rfs.vhd
+[6000] STATE: IDLE
+[6000]   FFT_WRAPPER: IDLE
+======================================================
+STARTING ACQUISITION ENGINE TESTBENCH
+======================================================
+relaunch_sim: Time (s): cpu = 00:02:57 ; elapsed = 00:01:04 . Memory (MB): peak = 10311.922 ; gain = 0.000 ; free physical = 1344 ; free virtual = 8055
+run all
+
+[STIMULUS] Playing back from testbench memory...
+
+✅ Finished. Played back 4096 samples.
+
+[CONTROL] Starting acquisition engine...
+[91122000] STATE: WAIT_FIFO
+[91126000] STATE: WIPEOFF
+[107518000] STATE: LOAD_FWD (Starting Forward FFT)
+[107526000]   FFT_WRAPPER: LOAD
+[123906000] STATE: STREAM_MULT (Waiting for FFT output & Multiplying)
+[123906000] ✅ FFT_WRAPPER: Transitioning to UNLOAD
+[123910000]   FFT_WRAPPER: UNLOAD
+[140298000] STATE: LOAD_INV (Starting IFFT)
+Note:   - SCALING_SCH: in_ptr = 1, out_ptr = 1
+Time: 140298 ns  Iteration: 15  Process: /tb_acquisition_engine/uut/u_fft/u_fft/U0/i_synth/axi_wrapper/gen_config_fifo_in/line__94240  File: /opt/Xilinx/2025.2/Vivado/data/ip/xilinx/xfft_v9_1/hdl/xfft_v9_1_vh_rfs.vhd
+[149102000] PEAK DET: count=0, i_in=-2035, q_in=-2159, mag=550156, max_mag=0
+[149106000] PEAK DET: count=1, i_in=28, q_in=-43, mag=164, max_mag=550156
+[149110000] PEAK DET: count=2, i_in=-6, q_in=10, mag=8, max_mag=550156
+[149114000] PEAK DET: count=3, i_in=66, q_in=-42, mag=382, max_mag=550156
+[149118000] PEAK DET: count=4, i_in=11, q_in=-45, mag=134, max_mag=550156
+[149122000] PEAK DET: count=5, i_in=12, q_in=-78, mag=389, max_mag=550156
+[149126000] PEAK DET: count=6, i_in=7, q_in=23, mag=36, max_mag=550156
+[149130000] PEAK DET: count=7, i_in=32, q_in=-7, mag=67, max_mag=550156
+[149134000] PEAK DET: count=8, i_in=-31, q_in=-52, mag=229, max_mag=550156
+[149138000] PEAK DET: count=9, i_in=13, q_in=2, mag=10, max_mag=550156
+[156686000] STATE: WAIT_INV (Waiting for IFFT completion)
+[165482000]   FFT_WRAPPER: IDLE
+[165490000] STATE: DONE
+[165494000] STATE: IDLE
+
+======================================================
+ACQUISITION COMPLETE
+======================================================
+Detected PRN: 1
+Detected Code Phase: 0 chips
+Peak Magnitude: 550156
+======================================================
+✅ TEST PASSED: Pipeline processed real data successfully!
+$finish called at time : 165540 ns : File "/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/tb_acquisition_engine.v" Line 238
+run: Time (s): cpu = 00:00:12 ; elapsed = 00:00:54 . Memory (MB): peak = 10311.922 ; gain = 0.000 ; free physical = 1333 ; free virtual = 8040
