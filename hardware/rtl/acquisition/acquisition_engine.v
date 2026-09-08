@@ -25,6 +25,7 @@ module acquisition_engine #(
     
     output wire [PHASE_BITS-1:0] best_doppler_word,
     output wire [IDX_WIDTH-1:0] best_code_phase,
+    output wire [7:0] best_code_phase_frac,  // ✅ NEW: Fractional chip offset
     output wire [31:0] peak_magnitude
 );
 
@@ -54,7 +55,11 @@ module acquisition_engine #(
     // =========================================================================
     reg [3:0] state;
     reg [4:0] nci_count;
-    reg       acq_start_latched; // ✅ FIX 3: Latch start pulse to wait for clear
+    reg       acq_start_latched;
+    reg [31:0] prev_peak_mag;  // ✅ NEW: Track previous peak for interpolation
+    reg        interp_start;   // ✅ NEW: Trigger parabolic interpolator
+    wire       interp_done;    // ✅ NEW: Interpolator done signal
+    wire [7:0] frac_offset;    // ✅ NEW: Fractional chip offset
     
     localparam [3:0] ST_IDLE        = 4'd0;
     localparam [3:0] ST_WAIT_FIFO   = 4'd1;
@@ -63,7 +68,8 @@ module acquisition_engine #(
     localparam [3:0] ST_STREAM_MULT = 4'd4;
     localparam [3:0] ST_LOAD_INV    = 4'd5;
     localparam [3:0] ST_WAIT_INV    = 4'd6;
-    localparam [3:0] ST_NCI_SCAN    = 4'd7; 
+    localparam [3:0] ST_NCI_SCAN    = 4'd7;
+    localparam [3:0] ST_INTERP      = 4'd9;  // ✅ NEW: Parabolic interpolation
     localparam [3:0] ST_DONE        = 4'd8;
 
     doppler_search_controller #(
@@ -124,8 +130,8 @@ module acquisition_engine #(
     wire signed [DATA_WIDTH-1:0] fft_i_out;
     wire signed [DATA_WIDTH-1:0] fft_q_out;
 
-    // ✅ FIX 1: Removed duplicate declaration. Kept only this one.
-    wire nci_fft_valid = fft_out_valid & fft_inverse;
+    wire nci_fft_valid;
+    assign nci_fft_valid = fft_out_valid & fft_inverse;
 
     fft_wrapper #(.FFT_SIZE(FFT_SIZE), .DATA_WIDTH(DATA_WIDTH)) u_fft (
         .clk(clk_200), .rst_n(rst_n), .start(fft_start), .done(fft_done), .inverse(fft_inverse),
@@ -146,14 +152,14 @@ module acquisition_engine #(
     );
 
     // =========================================================================
-    // 5. NCI Accumulator (FIXED - only accumulates during IFFT phase)
+    // NCI Accumulator
     // =========================================================================
     wire [31:0] nci_mag_out;
     reg  [11:0] nci_read_addr;
+    wire        nci_clear_done;
     
-    // ✅ CRITICAL FIX: Only accumulate during inverse FFT output phase
-    wire nci_accumulate_enable = fft_out_valid && (state == ST_WAIT_INV);
-    
+    wire nci_accumulate_enable = fft_out_valid & fft_inverse;
+
     nci_accumulator #(
         .FFT_SIZE(FFT_SIZE),
         .DATA_WIDTH(DATA_WIDTH)
@@ -161,13 +167,33 @@ module acquisition_engine #(
         .clk(clk_200),
         .rst_n(rst_n),
         .clear(acq_start),
-        .fft_out_valid(nci_accumulate_enable),  // ✅ GATED with state
+        .clear_done(nci_clear_done),
+        .fft_out_valid(nci_accumulate_enable),
         .i_in(fft_i_out),
         .q_in(fft_q_out),
         .mag_out(nci_mag_out),
         .read_addr(nci_read_addr)
     );
 
+    // =========================================================================
+    // ✅ NEW: Parabolic Interpolator for Sub-Chip Resolution
+    // =========================================================================
+    wire [7:0] frac_offset;    // Internal wire to hold fractional offset
+    wire interp_done;          // Internal wire for interpolator done signal
+
+    parabolic_interpolator u_interp (
+        .clk(clk_200),
+        .rst_n(rst_n),
+        .start(interp_start),
+        .mag_minus_1(prev_peak_mag),      // Magnitude at bin k-1
+        .mag_0(acq_peak_mag),             // Magnitude at bin k (peak)
+        .mag_plus_1(nci_mag_out),         // Magnitude at bin k+1
+        .frac_offset(frac_offset),        // Fractional chip offset from interpolator
+        .done(interp_done)
+    );
+
+    // ✅ THIS IS THE MISSING PIECE THAT FIXES THE 'Z' STATE:
+    assign best_code_phase_frac = frac_offset;
 
     always @(posedge clk_200) begin
         if (!rst_n) begin
@@ -176,6 +202,8 @@ module acquisition_engine #(
             acq_done <= 1'b0;
             acq_code_phase <= 0;
             acq_peak_mag <= 0;
+            prev_peak_mag <= 0;  // ✅ NEW
+            interp_start <= 1'b0;  // ✅ NEW
             carrier_phase <= 0;
             sample_cnt <= 0;
             rom_cnt <= 0;
@@ -189,17 +217,18 @@ module acquisition_engine #(
             nci_count <= 0;
             nci_read_addr <= 0;
         end else begin
-            acq_done <= 1'b0; 
+            acq_done <= 1'b0;
+            interp_start <= 1'b0;  // ✅ NEW
             
             case (state)
                 ST_IDLE: begin
-                    if (acq_start) acq_start_latched <= 1'b1; // Latch the pulse
+                    if (acq_start) acq_start_latched <= 1'b1;
                     
                     if (acq_start_latched) begin
-                        if (nci_clear_done) begin // ✅ Wait for NCI to finish clearing
+                        if (nci_clear_done) begin
                             state <= ST_WAIT_FIFO;
                             nci_count <= 0;
-                            acq_start_latched <= 1'b0; // Consumed
+                            acq_start_latched <= 1'b0;
                         end
                     end
                 end
@@ -295,40 +324,55 @@ module acquisition_engine #(
 
                 ST_WAIT_INV: begin
                     fft_in_valid <= 1'b0;
-                    
-                    // Wait for IFFT to complete one frame
                     if (fft_done) begin
                         if (nci_count == NCI_FRAMES - 1) begin
-                            // All frames accumulated - scan for peak
                             state <= ST_NCI_SCAN;
                             nci_read_addr <= 0;
                             acq_peak_mag <= 0;
                             acq_code_phase <= 0;
+                            prev_peak_mag <= 0;  // ✅ NEW: Reset previous peak
                         end else begin
-                            // More frames to accumulate
                             nci_count <= nci_count + 1;
-                            state <= ST_WAIT_FIFO;  // Go get more data
+                            state <= ST_WAIT_FIFO;
                         end
                     end
                 end
                 
                 ST_NCI_SCAN: begin
-                    // ✅ FIX 2: Compare FIRST, then increment (fixes skipping index 0)
+                    // ✅ NEW: Track previous peak magnitude for interpolation
                     if (nci_mag_out > acq_peak_mag) begin
+                        prev_peak_mag <= acq_peak_mag;  // Save previous peak as "bin k-1"
                         acq_peak_mag <= nci_mag_out;
                         acq_code_phase <= nci_read_addr;
                     end
                     
                     if (nci_read_addr == FFT_SIZE - 1) begin
-                        state <= ST_DONE;
+                        // Check if peak is at a valid position for interpolation
+                        if (acq_code_phase > 0 && acq_code_phase < FFT_SIZE - 1) begin
+                            nci_read_addr <= acq_code_phase + 1;  // Read bin k+1
+                            state <= ST_INTERP;
+                        end else begin
+                            state <= ST_DONE;  // Skip interpolation if peak is at edge
+                        end
                     end else begin
                         nci_read_addr <= nci_read_addr + 1;
                     end
                 end
 
+                // ✅ NEW: Parabolic Interpolation State
+                ST_INTERP: begin
+                    interp_start <= 1'b1;  // Trigger interpolator
+                    if (interp_done) begin
+                        // Interpolation complete
+                        // The fractional offset is available in frac_offset
+                        // You can combine it with acq_code_phase for sub-chip resolution
+                        state <= ST_DONE;
+                    end
+                end
+
                 ST_DONE: begin
-                    acq_done <= 1'b1; 
-                    state <= ST_IDLE; 
+                    acq_done <= 1'b1;
+                    state <= ST_IDLE;
                 end
             endcase
         end

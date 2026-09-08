@@ -15,7 +15,7 @@ module tb_acquisition_engine;
     
     parameter DOPPLER_STEP_HZ = 1000;
     parameter NUM_DOPPLER_BINS = 11;
-    parameter NCI_FRAMES = 20;
+    parameter NCI_FRAMES = 20; // Set to 20 for full integration
     
     reg [15:0] stim_i_mem [0:FFT_SIZE-1];
     reg [15:0] stim_q_mem [0:FFT_SIZE-1];
@@ -29,10 +29,12 @@ module tb_acquisition_engine;
     reg signed [15:0] stim_i;
     reg signed [15:0] stim_q;
     reg stim_valid;
+    
     wire [IDX_WIDTH-1:0] best_code_phase;
+    wire [7:0] best_code_phase_frac; // <-- ADDED: Wire for fractional offset
     wire [31:0] peak_magnitude;
 
-    reg  ctrl_start;
+    reg ctrl_start;
     wire [PHASE_BITS-1:0] best_doppler_word;
 
     parameter EXP_PRN = 5'd1; 
@@ -58,6 +60,7 @@ module tb_acquisition_engine;
         .prn_sel(EXP_PRN),
         .best_doppler_word(best_doppler_word),
         .best_code_phase(best_code_phase),
+        .best_code_phase_frac(best_code_phase_frac), // <-- ADDED: Connect to DUT
         .peak_magnitude(peak_magnitude)
     );
 
@@ -102,8 +105,8 @@ module tb_acquisition_engine;
                 4'd4: $display("[%0t] 🔍 [DUT] STREAM_MULT", $time);
                 4'd5: $display("[%0t] 🔍 [DUT] LOAD_INV", $time);
                 4'd6: $display("[%0t] 🔍 [DUT] WAIT_INV", $time);
-                4'd8: $display("[%0t] 🔍 [DUT] NCI_SCAN", $time);
-                4'd7: $display("[%0t] 🔍 [DUT] DONE", $time);
+                4'd7: $display("[%0t] 🔍 [DUT] NCI_SCAN", $time); // <-- FIXED: Swapped 7 and 8 to match acquisition_engine
+                4'd8: $display("[%0t] 🔍 [DUT] DONE", $time);    // <-- FIXED: Swapped 7 and 8 to match acquisition_engine
             endcase
             prev_state_debug_200 <= uut.state;
         end
@@ -111,7 +114,6 @@ module tb_acquisition_engine;
 
     reg [3:0] prev_ctrl_state;
     always @(posedge clk_200) begin
-        // ✅ FIX: Point to the internal controller instance
         if (uut.u_doppler_ctrl.state !== prev_ctrl_state) begin
             $display("[%0t] 🎛️ [CTRL] State -> %0d | Bin: %0d | Freq Word: %h", 
                      $time, uut.u_doppler_ctrl.state, uut.u_doppler_ctrl.doppler_bin, uut.u_doppler_ctrl.carrier_freq_word);
@@ -172,7 +174,8 @@ module tb_acquisition_engine;
         $display("🏁 2D SEARCH COMPLETE");
         $display("======================================================");
         $display("Best Doppler Word: %h", best_doppler_word);
-        $display("Best Code Phase:   %0d chips", best_code_phase);
+        // <-- ADDED: Print fractional offset (Q8 format means divide by 256.0)
+        $display("Best Code Phase:   %0d + (%0d / 256) chips", best_code_phase, $signed(best_code_phase_frac));
         $display("Global Peak Mag:   %0d (after %0dms NCI)", peak_magnitude, NCI_FRAMES);
         $display("======================================================");
 
