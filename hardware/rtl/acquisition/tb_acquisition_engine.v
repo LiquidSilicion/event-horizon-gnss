@@ -39,6 +39,8 @@ module tb_acquisition_engine;
 
     parameter EXP_PRN = 5'd1; 
 
+    wire [4:0] best_prn;  // ✅ NEW
+
     acquisition_engine #(
         .FFT_SIZE(FFT_SIZE),
         .DATA_WIDTH(DATA_WIDTH),
@@ -57,10 +59,10 @@ module tb_acquisition_engine;
         .i_sample(stim_i),
         .q_sample(stim_q),
         .sample_valid(stim_valid),
-        .prn_sel(EXP_PRN),
         .best_doppler_word(best_doppler_word),
         .best_code_phase(best_code_phase),
-        .best_code_phase_frac(best_code_phase_frac), // <-- ADDED: Connect to DUT
+        .best_code_phase_frac(best_code_phase_frac),
+        .best_prn(best_prn),          // ✅ NEW
         .peak_magnitude(peak_magnitude)
     );
 
@@ -105,8 +107,9 @@ module tb_acquisition_engine;
                 4'd4: $display("[%0t] 🔍 [DUT] STREAM_MULT", $time);
                 4'd5: $display("[%0t] 🔍 [DUT] LOAD_INV", $time);
                 4'd6: $display("[%0t] 🔍 [DUT] WAIT_INV", $time);
-                4'd7: $display("[%0t] 🔍 [DUT] NCI_SCAN", $time); // <-- FIXED: Swapped 7 and 8 to match acquisition_engine
-                4'd8: $display("[%0t] 🔍 [DUT] DONE", $time);    // <-- FIXED: Swapped 7 and 8 to match acquisition_engine
+                4'd7: $display("[%0t] 🔍 [DUT] NCI_SCAN", $time);
+                4'd8: $display("[%0t] 🔍 [DUT] DONE", $time);
+                4'd9: $display("[%0t] 🔍 [DUT] INTERP", $time);  // ← ADD THIS
             endcase
             prev_state_debug_200 <= uut.state;
         end
@@ -175,6 +178,10 @@ module tb_acquisition_engine;
         $display("======================================================");
         $display("Best Doppler Word: %h", best_doppler_word);
         // <-- ADDED: Print fractional offset (Q8 format means divide by 256.0)
+        $display("Best Code Phase:   %0d + (%0d / 256) chips", best_code_phase, $signed(best_code_phase_frac));
+        $display("Global Peak Mag:   %0d (after %0dms NCI)", peak_magnitude, NCI_FRAMES);
+        $display("Best PRN:          %0d", best_prn);  // ✅ NEW
+        $display("Best Doppler Word: %h", best_doppler_word);
         $display("Best Code Phase:   %0d + (%0d / 256) chips", best_code_phase, $signed(best_code_phase_frac));
         $display("Global Peak Mag:   %0d (after %0dms NCI)", peak_magnitude, NCI_FRAMES);
         $display("======================================================");

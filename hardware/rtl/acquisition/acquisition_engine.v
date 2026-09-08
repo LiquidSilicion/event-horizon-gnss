@@ -25,8 +25,9 @@ module acquisition_engine #(
     
     output wire [PHASE_BITS-1:0] best_doppler_word,
     output wire [IDX_WIDTH-1:0] best_code_phase,
-    output wire [7:0] best_code_phase_frac,  // ✅ NEW: Fractional chip offset
+    output wire [7:0] best_code_phase_frac,  // ✅ Fractional chip offset
     output wire [31:0] peak_magnitude
+    output wire [4:0] best_prn,  // ✅ NEW: Which satellite was found
 );
 
     reg load_fwd_wait;
@@ -50,39 +51,56 @@ module acquisition_engine #(
     reg [31:0]            acq_peak_mag;
     wire                  fft_tlast;
 
+    // ✅ Interpolation Tracking Registers
+    reg [31:0] prev_bin_mag;   // Tracks magnitude of bin k-1
+    reg [31:0] last_bin_mag;   // Tracks magnitude of bin 4095 (for wrap-around)
+    reg [31:0] mag_minus_1;    // Final magnitude for interpolator
+    reg [31:0] mag_plus_1;     // Final magnitude for interpolator
+    
+    reg [4:0] nci_count;
+    reg       acq_start_latched;
+    reg       interp_start;    // Trigger parabolic interpolator
+
     // =========================================================================
     // Local State Machine
     // =========================================================================
     reg [3:0] state;
-    reg [4:0] nci_count;
-    reg       acq_start_latched;
-    reg [31:0] prev_peak_mag;  // ✅ NEW: Track previous peak for interpolation
-    reg        interp_start;   // ✅ NEW: Trigger parabolic interpolator
-    wire       interp_done;    // ✅ NEW: Interpolator done signal
-    wire [7:0] frac_offset;    // ✅ NEW: Fractional chip offset
-    
-    localparam [3:0] ST_IDLE        = 4'd0;
-    localparam [3:0] ST_WAIT_FIFO   = 4'd1;
-    localparam [3:0] ST_WIPEOFF     = 4'd2;
-    localparam [3:0] ST_LOAD_FWD    = 4'd3;
-    localparam [3:0] ST_STREAM_MULT = 4'd4;
-    localparam [3:0] ST_LOAD_INV    = 4'd5;
-    localparam [3:0] ST_WAIT_INV    = 4'd6;
-    localparam [3:0] ST_NCI_SCAN    = 4'd7;
-    localparam [3:0] ST_INTERP      = 4'd9;  // ✅ NEW: Parabolic interpolation
-    localparam [3:0] ST_DONE        = 4'd8;
+    localparam [3:0] ST_IDLE         = 4'd0;
+    localparam [3:0] ST_WAIT_FIFO    = 4'd1;
+    localparam [3:0] ST_WIPEOFF      = 4'd2;
+    localparam [3:0] ST_LOAD_FWD     = 4'd3;
+    localparam [3:0] ST_STREAM_MULT  = 4'd4;
+    localparam [3:0] ST_LOAD_INV     = 4'd5;
+    localparam [3:0] ST_WAIT_INV     = 4'd6;
+    localparam [3:0] ST_NCI_SCAN     = 4'd7;
+    localparam [3:0] ST_DONE         = 4'd8;
+    localparam [3:0] ST_INTERP       = 4'd9;
+    localparam [3:0] ST_FETCH_PLUS_1 = 4'd10;
 
     doppler_search_controller #(
         .FFT_SIZE(FFT_SIZE),
         .PHASE_BITS(PHASE_BITS),
-        .NUM_DOPPLER_BINS(NUM_DOPPLER_BINS),
-        .DOPPLER_STEP_HZ(DOPPLER_STEP_HZ)
+        .NUM_COARSE_BINS(NUM_DOPPLER_BINS),  // ✅ RENAMED parameter
+        .COARSE_STEP_HZ(DOPPLER_STEP_HZ),    // ✅ RENAMED parameter
+        .NUM_FINE_BINS(21),                   // ✅ NEW parameter
+        .FINE_STEP_HZ(50),                    // ✅ NEW parameter
+        .NUM_PRNS(32)                         // ✅ NEW parameter
     ) u_doppler_ctrl (
-        .clk(clk_200), .rst_n(rst_n), .start(start), .done(done), .busy(busy),
-        .carrier_freq_word(carrier_freq_word), .acq_start(acq_start),
-        .acq_done(acq_done), .acq_code_phase(acq_code_phase), .acq_peak_mag(acq_peak_mag),
-        .best_doppler_word(best_doppler_word), .best_code_phase(best_code_phase),
-        .best_peak_mag(peak_magnitude)
+        .clk(clk_200), 
+        .rst_n(rst_n), 
+        .start(start), 
+        .done(done), 
+        .busy(busy),
+        .carrier_freq_word(carrier_freq_word), 
+        .acq_start(acq_start),
+        .acq_done(acq_done), 
+        .acq_code_phase(acq_code_phase), 
+        .acq_peak_mag(acq_peak_mag),
+        .prn_sel_out(prn_sel),                // ✅ NEW: Controller drives PRN selection
+        .best_doppler_word(best_doppler_word), 
+        .best_code_phase(best_code_phase),
+        .best_peak_mag(peak_magnitude),
+        .best_prn(best_prn)                   // ✅ NEW
     );
 
     fft_fifo_bridge #(.FIFO_DEPTH(8192)) u_fifo (
@@ -130,9 +148,6 @@ module acquisition_engine #(
     wire signed [DATA_WIDTH-1:0] fft_i_out;
     wire signed [DATA_WIDTH-1:0] fft_q_out;
 
-    wire nci_fft_valid;
-    assign nci_fft_valid = fft_out_valid & fft_inverse;
-
     fft_wrapper #(.FFT_SIZE(FFT_SIZE), .DATA_WIDTH(DATA_WIDTH)) u_fft (
         .clk(clk_200), .rst_n(rst_n), .start(fft_start), .done(fft_done), .inverse(fft_inverse),
         .i_in(fft_i_in), .q_in(fft_q_in), .in_valid(fft_in_valid), .in_ready(fft_in_ready),
@@ -176,23 +191,22 @@ module acquisition_engine #(
     );
 
     // =========================================================================
-    // ✅ NEW: Parabolic Interpolator for Sub-Chip Resolution
+    // Parabolic Interpolator for Sub-Chip Resolution
     // =========================================================================
-    wire [7:0] frac_offset;    // Internal wire to hold fractional offset
-    wire interp_done;          // Internal wire for interpolator done signal
+    wire [7:0] frac_offset;
+    wire interp_done;
 
     parabolic_interpolator u_interp (
         .clk(clk_200),
         .rst_n(rst_n),
         .start(interp_start),
-        .mag_minus_1(prev_peak_mag),      // Magnitude at bin k-1
-        .mag_0(acq_peak_mag),             // Magnitude at bin k (peak)
-        .mag_plus_1(nci_mag_out),         // Magnitude at bin k+1
-        .frac_offset(frac_offset),        // Fractional chip offset from interpolator
+        .mag_minus_1(mag_minus_1),
+        .mag_0(acq_peak_mag),
+        .mag_plus_1(mag_plus_1),
+        .frac_offset(frac_offset),
         .done(interp_done)
     );
 
-    // ✅ THIS IS THE MISSING PIECE THAT FIXES THE 'Z' STATE:
     assign best_code_phase_frac = frac_offset;
 
     always @(posedge clk_200) begin
@@ -202,8 +216,11 @@ module acquisition_engine #(
             acq_done <= 1'b0;
             acq_code_phase <= 0;
             acq_peak_mag <= 0;
-            prev_peak_mag <= 0;  // ✅ NEW
-            interp_start <= 1'b0;  // ✅ NEW
+            prev_bin_mag <= 0;      // ✅ Added to reset
+            last_bin_mag <= 0;      // ✅ Added to reset
+            mag_minus_1 <= 0;       // ✅ Added to reset
+            mag_plus_1 <= 0;        // ✅ Added to reset
+            interp_start <= 1'b0;
             carrier_phase <= 0;
             sample_cnt <= 0;
             rom_cnt <= 0;
@@ -218,12 +235,11 @@ module acquisition_engine #(
             nci_read_addr <= 0;
         end else begin
             acq_done <= 1'b0;
-            interp_start <= 1'b0;  // ✅ NEW
+            interp_start <= 1'b0;
             
             case (state)
                 ST_IDLE: begin
                     if (acq_start) acq_start_latched <= 1'b1;
-                    
                     if (acq_start_latched) begin
                         if (nci_clear_done) begin
                             state <= ST_WAIT_FIFO;
@@ -330,7 +346,6 @@ module acquisition_engine #(
                             nci_read_addr <= 0;
                             acq_peak_mag <= 0;
                             acq_code_phase <= 0;
-                            prev_peak_mag <= 0;  // ✅ NEW: Reset previous peak
                         end else begin
                             nci_count <= nci_count + 1;
                             state <= ST_WAIT_FIFO;
@@ -339,33 +354,51 @@ module acquisition_engine #(
                 end
                 
                 ST_NCI_SCAN: begin
-                    // ✅ NEW: Track previous peak magnitude for interpolation
+                    // 1. Track the magnitude of the PREVIOUS bin scanned
+                    prev_bin_mag <= nci_mag_out;
+                    
+                    // Save the very last bin (4095) for circular wrap-around
+                    if (nci_read_addr == FFT_SIZE - 1) begin
+                        last_bin_mag <= nci_mag_out;
+                    end
+
+                    // 2. Peak Detection
                     if (nci_mag_out > acq_peak_mag) begin
-                        prev_peak_mag <= acq_peak_mag;  // Save previous peak as "bin k-1"
                         acq_peak_mag <= nci_mag_out;
                         acq_code_phase <= nci_read_addr;
+                        // At this exact moment, prev_bin_mag holds the magnitude of bin k-1!
+                        mag_minus_1 <= prev_bin_mag; 
                     end
                     
+                    // 3. End of Scan Logic
                     if (nci_read_addr == FFT_SIZE - 1) begin
-                        // Check if peak is at a valid position for interpolation
-                        if (acq_code_phase > 0 && acq_code_phase < FFT_SIZE - 1) begin
-                            nci_read_addr <= acq_code_phase + 1;  // Read bin k+1
-                            state <= ST_INTERP;
-                        end else begin
-                            state <= ST_DONE;  // Skip interpolation if peak is at edge
-                        end
+                        // Scan complete. Now we need to fetch mag(k+1) from BRAM.
+                        if (acq_code_phase == FFT_SIZE - 1)
+                            nci_read_addr <= 0;      // Wrap around to bin 0
+                        else
+                            nci_read_addr <= acq_code_phase + 1;
+                            
+                        state <= ST_FETCH_PLUS_1;    // Go fetch k+1
                     end else begin
                         nci_read_addr <= nci_read_addr + 1;
                     end
                 end
 
-                // ✅ NEW: Parabolic Interpolation State
+                ST_FETCH_PLUS_1: begin
+                    // The BRAM output nci_mag_out is now mag(k+1)
+                    mag_plus_1 <= nci_mag_out;
+                    
+                    // Edge case fix: if peak was at bin 0, mag_minus_1 should be bin 4095
+                    if (acq_code_phase == 0) begin
+                        mag_minus_1 <= last_bin_mag;
+                    end
+                    
+                    state <= ST_INTERP; // Ready to interpolate!
+                end
+
                 ST_INTERP: begin
                     interp_start <= 1'b1;  // Trigger interpolator
                     if (interp_done) begin
-                        // Interpolation complete
-                        // The fractional offset is available in frac_offset
-                        // You can combine it with acq_code_phase for sub-chip resolution
                         state <= ST_DONE;
                     end
                 end
