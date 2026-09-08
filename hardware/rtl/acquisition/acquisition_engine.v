@@ -19,15 +19,12 @@ module acquisition_engine #(
     
     input  wire signed [15:0] i_sample,
     input  wire signed [15:0] q_sample,
-    input  wire sample_valid,
-    
-    input  wire [4:0] prn_sel,
-    
+    input  wire sample_valid,    
     output wire [PHASE_BITS-1:0] best_doppler_word,
     output wire [IDX_WIDTH-1:0] best_code_phase,
     output wire [7:0] best_code_phase_frac,  // ✅ Fractional chip offset
-    output wire [31:0] peak_magnitude
-    output wire [4:0] best_prn,  // ✅ NEW: Which satellite was found
+    output wire [31:0] peak_magnitude,
+    output wire [4:0] best_prn  // ✅ NEW: Which satellite was found
 );
 
     reg load_fwd_wait;
