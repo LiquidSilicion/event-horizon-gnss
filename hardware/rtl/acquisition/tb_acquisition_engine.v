@@ -13,9 +13,14 @@ module tb_acquisition_engine;
     integer sum_i, sum_q;
     integer mean_i, mean_q;
     
+    // ✅ UPDATED: Add new parameters for Multi-PRN and Two-Stage search
     parameter DOPPLER_STEP_HZ = 1000;
     parameter NUM_DOPPLER_BINS = 11;
-    parameter NCI_FRAMES = 20; // Set to 20 for full integration
+    parameter NCI_FRAMES = 3;        // Keep at 3 for fast testing
+    
+    parameter NUM_FINE_BINS = 5;     // ✅ NEW: Only 5 fine bins for quick test
+    parameter FINE_STEP_HZ = 50;     // ✅ NEW: 50 Hz fine step
+    parameter NUM_PRNS = 3;
     
     reg [15:0] stim_i_mem [0:FFT_SIZE-1];
     reg [15:0] stim_q_mem [0:FFT_SIZE-1];
@@ -31,16 +36,14 @@ module tb_acquisition_engine;
     reg stim_valid;
     
     wire [IDX_WIDTH-1:0] best_code_phase;
-    wire [7:0] best_code_phase_frac; // <-- ADDED: Wire for fractional offset
+    wire [7:0] best_code_phase_frac; 
     wire [31:0] peak_magnitude;
+    wire [4:0] best_prn;             // ✅ NEW: Output from DUT
 
     reg ctrl_start;
     wire [PHASE_BITS-1:0] best_doppler_word;
 
-    parameter EXP_PRN = 5'd1; 
-
-    wire [4:0] best_prn;  // ✅ NEW
-
+    // ✅ UPDATED: Pass ALL parameters to the DUT
     acquisition_engine #(
         .FFT_SIZE(FFT_SIZE),
         .DATA_WIDTH(DATA_WIDTH),
@@ -48,7 +51,10 @@ module tb_acquisition_engine;
         .IDX_WIDTH(IDX_WIDTH),
         .NUM_DOPPLER_BINS(NUM_DOPPLER_BINS),
         .DOPPLER_STEP_HZ(DOPPLER_STEP_HZ),
-        .NCI_FRAMES(NCI_FRAMES)
+        .NCI_FRAMES(NCI_FRAMES),
+        .NUM_FINE_BINS(NUM_FINE_BINS),   // ✅ PASSED
+        .FINE_STEP_HZ(FINE_STEP_HZ),     // ✅ PASSED
+        .NUM_PRNS(NUM_PRNS)              // ✅ PASSED
     ) uut (
         .clk_100(clk_100),
         .clk_200(clk_200),
@@ -62,7 +68,7 @@ module tb_acquisition_engine;
         .best_doppler_word(best_doppler_word),
         .best_code_phase(best_code_phase),
         .best_code_phase_frac(best_code_phase_frac),
-        .best_prn(best_prn),          // ✅ NEW
+        .best_prn(best_prn),             // ✅ CONNECTED
         .peak_magnitude(peak_magnitude)
     );
 
@@ -109,7 +115,7 @@ module tb_acquisition_engine;
                 4'd6: $display("[%0t] 🔍 [DUT] WAIT_INV", $time);
                 4'd7: $display("[%0t] 🔍 [DUT] NCI_SCAN", $time);
                 4'd8: $display("[%0t] 🔍 [DUT] DONE", $time);
-                4'd9: $display("[%0t] 🔍 [DUT] INTERP", $time);  // ← ADD THIS
+                4'd9: $display("[%0t] 🔍 [DUT] INTERP", $time);
             endcase
             prev_state_debug_200 <= uut.state;
         end
@@ -118,8 +124,8 @@ module tb_acquisition_engine;
     reg [3:0] prev_ctrl_state;
     always @(posedge clk_200) begin
         if (uut.u_doppler_ctrl.state !== prev_ctrl_state) begin
-            $display("[%0t] 🎛️ [CTRL] State -> %0d | Bin: %0d | Freq Word: %h", 
-                     $time, uut.u_doppler_ctrl.state, uut.u_doppler_ctrl.doppler_bin, uut.u_doppler_ctrl.carrier_freq_word);
+            $display("[%0t] 🎛️ [CTRL] State -> %0d | PRN: %0d | Bin: %0d | Freq: %h", 
+                     $time, uut.u_doppler_ctrl.state, uut.u_doppler_ctrl.prn_counter, uut.u_doppler_ctrl.doppler_bin, uut.u_doppler_ctrl.carrier_freq_word);
             prev_ctrl_state <= uut.u_doppler_ctrl.state;
         end
     end
@@ -160,9 +166,14 @@ module tb_acquisition_engine;
         rst_n = 1;
         #50000;
         
+        // ✅ UPDATED: Print full configuration context
         $display("\n======================================================");
-        $display("STARTING AUTONOMOUS 2D DOPPLER SEARCH WITH %0d ms NCI", NCI_FRAMES);
-        $display("Bins: %0d, Step: %0d Hz", NUM_DOPPLER_BINS, DOPPLER_STEP_HZ);
+        $display("STARTING MULTI-PRN TWO-STAGE ACQUISITION");
+        $display("Configuration:");
+        $display("  - PRNs to search: %0d", NUM_PRNS);
+        $display("  - Coarse Bins: %0d (Step: %0d Hz)", NUM_DOPPLER_BINS, DOPPLER_STEP_HZ);
+        $display("  - Fine Bins: %0d (Step: %0d Hz)", NUM_FINE_BINS, FINE_STEP_HZ);
+        $display("  - NCI Frames: %0d ms", NCI_FRAMES);
         $display("======================================================");
 
         @(posedge clk_200);
@@ -173,21 +184,18 @@ module tb_acquisition_engine;
         wait (done == 1);
         #(CLK_200_PERIOD * 10);
 
+        // ✅ UPDATED: Clean, non-duplicate summary with all new features
         $display("\n======================================================");
-        $display("🏁 2D SEARCH COMPLETE");
+        $display("🏁 FULL COLD START SEARCH COMPLETE");
         $display("======================================================");
-        $display("Best Doppler Word: %h", best_doppler_word);
-        // <-- ADDED: Print fractional offset (Q8 format means divide by 256.0)
-        $display("Best Code Phase:   %0d + (%0d / 256) chips", best_code_phase, $signed(best_code_phase_frac));
-        $display("Global Peak Mag:   %0d (after %0dms NCI)", peak_magnitude, NCI_FRAMES);
-        $display("Best PRN:          %0d", best_prn);  // ✅ NEW
+        $display("Best PRN:          %0d", best_prn);
         $display("Best Doppler Word: %h", best_doppler_word);
         $display("Best Code Phase:   %0d + (%0d / 256) chips", best_code_phase, $signed(best_code_phase_frac));
         $display("Global Peak Mag:   %0d (after %0dms NCI)", peak_magnitude, NCI_FRAMES);
         $display("======================================================");
 
         if (peak_magnitude > 0) begin
-            $display("✅ TEST PASSED: 2D Acquisition Successful!");
+            $display("✅ TEST PASSED: Multi-PRN Acquisition Successful!");
         end else begin
             $display("❌ TEST FAILED: No signal found.");
         end

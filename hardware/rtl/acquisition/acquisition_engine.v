@@ -7,7 +7,10 @@ module acquisition_engine #(
     parameter IDX_WIDTH = 12,
     parameter NUM_DOPPLER_BINS = 11,
     parameter DOPPLER_STEP_HZ = 1000,
-    parameter NCI_FRAMES = 20
+    parameter NCI_FRAMES = 3,
+    parameter NUM_FINE_BINS = 5,
+    parameter NUM_PRNS = 3,
+    parameter FINE_STEP_HZ =50
 )(
     input  wire clk_100,
     input  wire clk_200,
@@ -57,6 +60,7 @@ module acquisition_engine #(
     reg [4:0] nci_count;
     reg       acq_start_latched;
     reg       interp_start;    // Trigger parabolic interpolator
+    wire [4:0] prn_sel_internal;
 
     // =========================================================================
     // Local State Machine
@@ -79,9 +83,9 @@ module acquisition_engine #(
         .PHASE_BITS(PHASE_BITS),
         .NUM_COARSE_BINS(NUM_DOPPLER_BINS),  // ✅ RENAMED parameter
         .COARSE_STEP_HZ(DOPPLER_STEP_HZ),    // ✅ RENAMED parameter
-        .NUM_FINE_BINS(21),                   // ✅ NEW parameter
-        .FINE_STEP_HZ(50),                    // ✅ NEW parameter
-        .NUM_PRNS(32)                         // ✅ NEW parameter
+        .NUM_FINE_BINS(NUM_FINE_BINS),                   // ✅ NEW parameter
+        .FINE_STEP_HZ(FINE_STEP_HZ),                    // ✅ NEW parameter
+        .NUM_PRNS(NUM_PRNS)                         // ✅ NEW parameter
     ) u_doppler_ctrl (
         .clk(clk_200), 
         .rst_n(rst_n), 
@@ -93,7 +97,7 @@ module acquisition_engine #(
         .acq_done(acq_done), 
         .acq_code_phase(acq_code_phase), 
         .acq_peak_mag(acq_peak_mag),
-        .prn_sel_out(prn_sel),                // ✅ NEW: Controller drives PRN selection
+        .prn_sel_out(prn_sel_internal),                // ✅ NEW: Controller drives PRN selection
         .best_doppler_word(best_doppler_word), 
         .best_code_phase(best_code_phase),
         .best_peak_mag(peak_magnitude),
@@ -127,7 +131,7 @@ module acquisition_engine #(
     wire signed [DATA_WIDTH-1:0] rom_fft_q;
 
     code_fft_rom #(.FFT_SIZE(4096), .DATA_WIDTH(18)) u_code_fft_rom (
-        .clk(clk_200), .prn_sel(prn_sel), .bin_idx(rom_cnt),
+        .clk(clk_200), .prn_sel(prn_sel_internal), .bin_idx(rom_cnt),
         .fft_i_out(rom_fft_i), .fft_q_out(rom_fft_q)
     );
 

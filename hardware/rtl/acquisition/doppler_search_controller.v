@@ -5,9 +5,9 @@ module doppler_search_controller #(
     parameter PHASE_BITS = 48,
     parameter NUM_COARSE_BINS = 11,
     parameter COARSE_STEP_HZ = 1000,
-    parameter NUM_FINE_BINS = 21,
+    parameter NUM_FINE_BINS = 5,
     parameter FINE_STEP_HZ = 50,
-    parameter NUM_PRNS = 32
+    parameter NUM_PRNS = 3
 )(
     input  wire                     clk,
     input  wire                     rst_n,
