@@ -18,8 +18,25 @@ module acquisition_top (
     input  wire       uart_rx
 );
 
+    wire stim_valid;
+    wire signed [15:0] stim_i;
+    wire signed [15:0] stim_q;
+
     // =========================================================================
-    // 4 MHz Sample Rate Generator (100 MHz / 25 = 4 MHz)
+    // 1. Clocking Wizard Instantiation
+    // =========================================================================
+    wire clk_200;
+    wire clk_locked;
+    
+    clk_wiz_200mhz u_clk_wiz (
+        .clk_in1  (clk_100),
+        .clk_out1 (clk_200),
+        .locked   (clk_locked),
+        .reset    (~rst_n)
+    );
+
+    // =========================================================================
+    // 2. 4 MHz Sample Rate Generator (100 MHz / 25 = 4 MHz)
     // =========================================================================
     reg [4:0] sample_div_counter;
     wire      sample_en;
@@ -31,13 +48,11 @@ module acquisition_top (
             sample_div_counter <= sample_div_counter + 1'b1;
         end
     end
-
-    // This pulse fires exactly at 4 MHz
     assign sample_en = (sample_div_counter == 5'd24);
     
-    // ========================================================================
-    // Button Synchronization & Debouncing (Sync to 200 MHz domain)
-    // ========================================================================
+    // =========================================================================
+    // 3. Button Synchronization & Debouncing (Sync to 200 MHz domain)
+    // =========================================================================
     reg [2:0] start_btn_sync;
     wire start_btn_rising;
     
@@ -47,12 +62,11 @@ module acquisition_top (
         else
             start_btn_sync <= {start_btn_sync[1:0], start_btn};
     end
-    
     assign start_btn_rising = start_btn_sync[1] & ~start_btn_sync[2];
     
-    // ========================================================================
-    // Acquisition Engine Instance
-    // ========================================================================
+    // =========================================================================
+    // 4. Acquisition Engine Instance
+    // =========================================================================
     wire        acq_done;
     wire        acq_busy;
     wire [47:0] best_doppler_word;
@@ -61,21 +75,6 @@ module acquisition_top (
     wire [4:0]  best_prn;
     wire [31:0] peak_magnitude;
     
-    // Stimulus Generator (for testing without ADC)
-    // Runs at the sampling clock rate (4.096 MHz)
-    wire        stim_valid;
-    wire signed [15:0] stim_i;
-    wire signed [15:0] stim_q;
-    
-    stimulus_generator u_stim_gen (
-        .clk         (clk_sample),
-        .rst_n       (rst_n & clk_locked),
-        .enable      (acq_busy),
-        .sample_valid(stim_valid),
-        .sample_i    (stim_i),
-        .sample_q    (stim_q)
-    );
-    
     acquisition_engine #(
         .FFT_SIZE          (4096),
         .DATA_WIDTH        (18),
@@ -83,36 +82,50 @@ module acquisition_top (
         .IDX_WIDTH         (12),
         .NUM_DOPPLER_BINS  (11),
         .DOPPLER_STEP_HZ   (1000),
-        .NCI_FRAMES        (20),
+        .NCI_FRAMES        (10),        // ✅ Reduced from 20 to save NCI accumulator BRAM
         .NUM_FINE_BINS     (21),
         .FINE_STEP_HZ      (50),
-        .NUM_PRNS          (32)
+        .NUM_PRNS          (16)         // ✅ CRITICAL: Set to 16 to cut ROM BRAM usage in half!
     ) u_acq_engine (
-        .clk_sample           (clk_sample), // <-- Wired to 4.096 MHz sample clock
-        .clk_200              (clk_200),    // <-- Wired to 200 MHz processing clock
+        .clk_100              (clk_100), 
+        .clk_200              (clk_200),
         .rst_n                (rst_n & clk_locked),
         .start                (start_btn_rising),
         .done                 (acq_done),
         .busy                 (acq_busy),
-        .i_sample             (stim_i),
-        .q_sample             (stim_q),
-        .sample_valid         (stim_valid),
+        .i_sample             (stim_i),       // ✅ FIXED: Connected to stimulus generator
+        .q_sample             (stim_q),       // ✅ FIXED: Connected to stimulus generator
+        .sample_valid         (stim_valid),   // ✅ FIXED: Connected to stimulus generator
         .best_doppler_word    (best_doppler_word),
         .best_code_phase      (best_code_phase),
         .best_code_phase_frac (best_code_phase_frac),
         .best_prn             (best_prn),
         .peak_magnitude       (peak_magnitude)
     );
+
+    // =========================================================================
+    // 5. BRAM Stimulus Generator (For hardware verification)
+    // =========================================================================
     
-    // ========================================================================
-    // UART Transmitter
-    // ========================================================================
+    stimulus_generator u_stim (
+        .clk         (clk_100),
+        .rst_n       (rst_n & clk_locked),
+        .enable      (acq_busy),       
+        .sample_en   (sample_en),      
+        .sample_valid(stim_valid),
+        .sample_i    (stim_i),
+        .sample_q    (stim_q)
+    );
+    
+    // =========================================================================
+    // 6. UART Transmitter
+    // =========================================================================
     wire        uart_tx_start;
     wire [7:0]  uart_tx_data;
     wire        uart_tx_busy;
     
     uart_tx #(
-        .CLK_FREQ (100_000_000), // UART runs off the stable 100 MHz board clock
+        .CLK_FREQ (100_000_000), 
         .BAUD     (115200)
     ) u_uart_tx (
         .clk      (clk_100),
@@ -123,9 +136,9 @@ module acquisition_top (
         .tx_busy  (uart_tx_busy)
     );
     
-    // ========================================================================
-    // Result Reporter (Converts binary to ASCII and sends via UART)
-    // ========================================================================
+    // =========================================================================
+    // 7. Result Reporter
+    // =========================================================================
     result_reporter u_result_reporter (
         .clk              (clk_200), 
         .rst_n            (rst_n & clk_locked),
@@ -140,9 +153,9 @@ module acquisition_top (
         .uart_tx_busy     (uart_tx_busy)
     );
     
-    // ========================================================================
-    // LED Control
-    // ========================================================================
+    // =========================================================================
+    // 8. LED Control
+    // =========================================================================
     assign led_done  = acq_done;
     assign led_busy  = acq_busy;
     assign led_found = acq_done & (peak_magnitude > 32'd1000000);

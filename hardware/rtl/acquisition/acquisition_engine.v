@@ -8,8 +8,8 @@ module acquisition_engine #(
     parameter NUM_DOPPLER_BINS = 11,
     parameter DOPPLER_STEP_HZ = 1000,
     parameter NCI_FRAMES = 3,
-    parameter NUM_FINE_BINS = 5,
-    parameter NUM_PRNS = 3,
+    parameter NUM_FINE_BINS = 21,
+    parameter NUM_PRNS = 16,
     parameter FINE_STEP_HZ =50
 )(
     input  wire clk_100,

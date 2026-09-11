@@ -12,6 +12,8 @@ module tb_acquisition_engine;
     integer i;
     integer sum_i, sum_q;
     integer mean_i, mean_q;
+    integer stream_index;       // ✅ NEW: For 4 MHz streaming
+    reg streaming_active;       // ✅ NEW: For 4 MHz streaming
     
     // ✅ UPDATED: Add new parameters for Multi-PRN and Two-Stage search
     parameter DOPPLER_STEP_HZ = 1000;
@@ -72,16 +74,19 @@ module tb_acquisition_engine;
         .peak_magnitude(peak_magnitude)
     );
 
+    // 100 MHz Clock
     initial begin
         clk_100 = 0;
         forever #(CLK_100_PERIOD/2) clk_100 = ~clk_100;
     end
 
+    // 200 MHz Clock
     initial begin
         clk_200 = 0;
         forever #(CLK_200_PERIOD/2) clk_200 = ~clk_200;
     end
 
+    // Load Stimulus and Apply DC Bias Removal
     initial begin
         $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/stim_i.hex", stim_i_mem);
         $readmemh("/home/johan2/Documents/fpga/event-horizon-gnss/hardware/rtl/acquisition/stim_q.hex", stim_q_mem);
@@ -102,6 +107,7 @@ module tb_acquisition_engine;
         end
     end
 
+    // Debug: DUT State Machine
     reg [3:0] prev_state_debug_200;
     always @(posedge clk_200) begin
         if (uut.state !== prev_state_debug_200) begin
@@ -121,6 +127,7 @@ module tb_acquisition_engine;
         end
     end
 
+    // Debug: Controller State Machine
     reg [3:0] prev_ctrl_state;
     always @(posedge clk_200) begin
         if (uut.u_doppler_ctrl.state !== prev_ctrl_state) begin
@@ -130,32 +137,64 @@ module tb_acquisition_engine;
         end
     end
 
+    // ✅ NEW: 4 MHz Sample Rate Generator (100 MHz / 25 = 4 MHz)
+    reg [4:0] tb_sample_div_counter;
+    wire tb_sample_en;
+
+    always @(posedge clk_100) begin
+        if (tb_sample_div_counter == 5'd24) begin
+            tb_sample_div_counter <= 5'd0;
+        end else begin
+            tb_sample_div_counter <= tb_sample_div_counter + 1'b1;
+        end
+    end
+    assign tb_sample_en = (tb_sample_div_counter == 5'd24);
+
+    // ✅ NEW: Streaming logic synchronized to 4 MHz enable signal
     initial begin
         stim_valid = 0;
         stim_i = 0;
         stim_q = 0;
+        stream_index = 0;
+        streaming_active = 0;
         
         wait(rst_n == 1);
         #100;
         
         forever begin
+            // Wait for DUT to request data (state == 4'd1, ST_WAIT_FIFO)
             wait (uut.state == 4'd1); 
-            $display("[%0t] 📥 [TB] DUT requested data. Streaming %0d samples...", $time, FFT_SIZE);
+            $display("[%0t] 📥 [TB] DUT requested data. Streaming %0d samples at 4 MHz...", $time, FFT_SIZE);
             
-            for (i = 0; i < FFT_SIZE; i = i + 1) begin
+            streaming_active = 1;
+            stream_index = 0;
+            
+            // Stream 4096 samples, advancing ONLY on tb_sample_en
+            while (stream_index < FFT_SIZE) begin
                 @(posedge clk_100);
-                stim_valid <= 1;
-                stim_i <= stim_i_mem[i];
-                stim_q <= stim_q_mem[i];
+                if (tb_sample_en) begin
+                    stim_valid <= 1'b1;
+                    stim_i <= stim_i_mem[stream_index];
+                    stim_q <= stim_q_mem[stream_index];
+                    stream_index = stream_index + 1;
+                end else begin
+                    stim_valid <= 1'b0; // Keep valid low between samples
+                end
             end
+            
+            // Final cycle to clear valid
             @(posedge clk_100);
-            stim_valid <= 0;
+            stim_valid <= 1'b0;
+            streaming_active = 0;
+            
             $display("[%0t] ✅ [TB] Streaming complete.", $time);
             
+            // Wait for DUT to move to next state before looping
             wait (uut.state !== 4'd1);
         end
     end
 
+    // Main Test Sequence
     initial begin
         rst_n = 0;
         ctrl_start = 0;
